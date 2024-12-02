@@ -1,13 +1,16 @@
 module serverCounter
 
 import ref
+import io
+import io/filesystem
+import io/error
 
 // Node.js HTTP server FFI definitions
 extern type Server
 extern type Request
 extern type Response
 
-extern io def createServer(handler: (Request, Response) => Unit at {io, global}): Server =
+extern io def createServer(handler: (Request, Response) => Unit at {io, global, async}): Server =
   jsNode "require('http').createServer((req, res) => $effekt.runToplevel((ks, k) => ${handler}(req, res, ks, k)))"
 
 extern io def listen(server: Server, port: Int): Unit =
@@ -40,9 +43,23 @@ def handleRequest(counter: Ref[Int], req: Request, res: Response): Unit = {
   println(method ++ " " ++ path ++ " " ++ show(arg))
 
   (method, path) match {
+    case ("GET", "") => {
+      with on[IOError].panic;
+      val htmlContent = readFile("./out/clientCounter.html")
+      writeHead(res, 200, "text/html")
+      end(res, htmlContent)
+    }
     case ("GET", "count") => {
       writeHead(res, 200, "application/json")
       end(res, """{"count":""" ++ show(counter.get()) ++ "}")
+    }
+    case ("GET", file) => {
+      with on[IOError].panic;
+      if (file.endsWith(".js")) {
+        val content = readFile("./out/" ++ file)
+        writeHead(res, 200, "application/javascript")
+        end(res, content)
+      } 
     }
     case ("POST", "change") => {
       val n = arg.unsafeToInt()
