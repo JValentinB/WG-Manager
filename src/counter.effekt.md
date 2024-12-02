@@ -23,22 +23,29 @@ This first part just models a tiny part of HTML/virtual DOM parametrized on an `
 type EventHandler[Ev] { 
   OnClick(handler: Ev);
   OnChange(handler: (String) => Ev at {})
+  OnMouseEnter(handler: Ev);
+  OnMouseLeave(handler: Ev);
 }
+
+record Attribute (
+  name: String,
+  value: String
+)
 
 type Html[Ev] {
   Text(content: String);
-  Element(tag: String, handler: List[EventHandler[Ev]], children: List[Html[Ev]])
+  Element(tag: String, handler: List[EventHandler[Ev]], children: List[Html[Ev]], attributes: List[Attribute]);
 }
 
 def text[Ev](content: String) = Text[Ev](content)
 
-def button[Ev](handler: List[EventHandler[Ev]], children: List[Html[Ev]]) =
-  Element("button", handler, children)
+def button[Ev](handler: List[EventHandler[Ev]], children: List[Html[Ev]], attributes: List[Attribute]) =
+  Element("button", handler, children, attributes)
 
-def div[Ev](handler: List[EventHandler[Ev]], children: List[Html[Ev]]) =
-  Element("div", handler, children)
+def div[Ev](handler: List[EventHandler[Ev]], children: List[Html[Ev]], attributes: List[Attribute]) =
+  Element("div", handler, children, attributes)
 
-def div[Ev](children: List[Html[Ev]]): Html[Ev] = div([], children)
+def div[Ev](children: List[Html[Ev]], attributes: List[Attribute]): Html[Ev] = div([], children, attributes)
 ```
 
 This next part is the core of the whole approach:
@@ -56,66 +63,66 @@ def statefully[R, St](r: Ref[St]) { prog: () => R / State[St] }: R =
   }
 
 
-/// Main type: each application can:
-/// - `update` based on an Ev(ent) and modify its St(ate)
-/// - `view` (render) the application, possibly modifying the St(ate)
-record Application[St, Ev](
-  update: Ev => Unit / State[St] at {},
-  view: () => Html[Ev] / State[St] at {}
-)
+// /// Main type: each application can:
+// /// - `update` based on an Ev(ent) and modify its St(ate)
+// /// - `view` (render) the application, possibly modifying the St(ate)
+// record Application[St, Ev](
+//   update: Ev => Unit / State[St] at {},
+//   view: () => Html[Ev] / State[St] at {}
+// )
 
-/// Main runner of `Application`s.
-/// You don't need to understand how this works.
-def run[St, Ev](root: Node, init: St, app: Application[St, Ev]) = app match {
-  case Application(update, view) =>
-    val inbox = ref[List[Ev]](Nil())
-    val state = ref(init)
+// /// Main runner of `Application`s.
+// /// You don't need to understand how this works.
+// def run[St, Ev](root: Node, init: St, app: Application[St, Ev]) = app match {
+//   case Application(update, view) =>
+//     val inbox = ref[List[Ev]](Nil())
+//     val state = ref(init)
 
-    def send(ev: Ev): Unit = inbox.set(Cons(ev, inbox.get))
+//     def send(ev: Ev): Unit = inbox.set(Cons(ev, inbox.get))
 
-    // renders the Node to the DOM
-    def render(html: Html[Ev]): Node = html match {
-      case Text(content) => createTextNode(content)
-      case Element(tag, handler, children) =>
-        val el = createElement(tag)
-        handler.foreach {
-          case OnClick(ev) => 
-            el.onClick(box { send(ev) })
-            ()
-          case OnChange(h) => ()
-        }
-        children.foreach { child => 
-          el.appendChild(child.render)
-          ()
-        }
-        el
-    }
+//     // renders the Node to the DOM
+//     def render(html: Html[Ev]): Node = html match {
+//       case Text(content) => createTextNode(content)
+//       case Element(tag, handler, children) =>
+//         val el = createElement(tag)
+//         handler.foreach {
+//           case OnClick(ev) => 
+//             el.onClick(box { send(ev) })
+//             ()
+//           case OnChange(h) => ()
+//         }
+//         children.foreach { child => 
+//           el.appendChild(child.render)
+//           ()
+//         }
+//         el
+//     }
 
-    // renders the app with the current state
-    def render(): Unit = {
-      val rendered = statefully(state) { view() }.render
-      root.clear;
-      root.appendChild(rendered);
-      ()
-    }
+//     // renders the app with the current state
+//     def render(): Unit = {
+//       val rendered = statefully(state) { view() }.render
+//       root.clear;
+//       root.appendChild(rendered);
+//       ()
+//     }
 
-    def loop(deadline: IdleDeadline): Unit = {
-      val messages = inbox.get.reverse
-      inbox.set(Nil())
+//     def loop(deadline: IdleDeadline): Unit = {
+//       val messages = inbox.get.reverse
+//       inbox.set(Nil())
 
-      if (messages.nonEmpty) {
-        messages.foreach { ev =>
-          statefully(state) { update(ev) }
-        }
+//       if (messages.nonEmpty) {
+//         messages.foreach { ev =>
+//           statefully(state) { update(ev) }
+//         }
 
-        render()
-      }
-      requestIdleCallback(box loop)
-    }
+//         render()
+//       }
+//       requestIdleCallback(box loop)
+//     }
 
-    render()
-    requestIdleCallback(box loop)
-}
+//     render()
+//     requestIdleCallback(box loop)
+// }
 ```
 
 ### Part 1: Understand what's going on
@@ -129,57 +136,57 @@ everything should Just Work :tm:. (Otherwise please commit, push, and tag me ASA
 
 What is here the `St` (what type)? What is here the `Ev` (what type)?
 
-```effekt
-def whatIsStHere(): String = "St is of type Int" // TODO
-def whatIsEvHere(): String = "Ev is of type Event " // TODO
-```
+// ```effekt
+// def whatIsStHere(): String = "St is of type Int" // TODO
+// def whatIsEvHere(): String = "Ev is of type Event " // TODO
+// ```
 
-Here's the counter app:
+// Here's the counter app:
 
-```effekt
-interface Model {
-  def change(n: Int): Unit
-  def reset(): Unit
-  def count(): Int
-}
+// ```effekt
+// interface Model {
+//   def change(n: Int): Unit
+//   def reset(): Unit
+//   def count(): Int
+// }
 
-// The "reified" Model
-type Event { 
-  Change(n: Int);
-  Reset();
-}
+// // The "reified" Model
+// type Event { 
+//   Change(n: Int);
+//   Reset();
+// }
 
-// "reflection"
-def dispatch(msg: Event) = msg match {
-  case Change(n) => do change(n)
-  case Reset() => do reset()
-}
+// // "reflection"
+// def dispatch(msg: Event) = msg match {
+//   case Change(n) => do change(n)
+//   case Reset() => do reset()
+// }
 
-// handle `Model` using `State`
-def counterModel[R] { prog: => R / Model }: R / State[Int] =
-  try { prog() }
-  with Model {
-    def count() = resume(do getState())
-    def change(n: Int) = {
-      do setState(do getState() + n)
-      resume(())
-    }
-    def reset() = {
-      do setState(0)
-      resume(())
-    }
-  }
+// // handle `Model` using `State`
+// def counterModel[R] { prog: => R / Model }: R / State[Int] =
+//   try { prog() }
+//   with Model {
+//     def count() = resume(do getState())
+//     def change(n: Int) = {
+//       do setState(do getState() + n)
+//       resume(())
+//     }
+//     def reset() = {
+//       do setState(0)
+//       resume(())
+//     }
+//   }
 
-// defines the actual "component"
-def view(): Html[Event] / Model =
-  div([
-    text("Hello World!"),
-    button([ OnClick(Change(-1)) ], [ text("-1") ]),
-    text("Current value: " ++ show( do count() )),
-    button([ OnClick(Change(1)) ], [ text("+1") ]),
-    button([ OnClick(Reset()) ], [ text("Reset") ])
-  ])
-```
+// // defines the actual "component"
+// def view(): Html[Event] / Model =
+//   div([
+//     text("Hello World!"),
+//     button([ OnClick(Change(-1)) ], [ text("-1") ]),
+//     text("Current value: " ++ show( do count() )),
+//     button([ OnClick(Change(1)) ], [ text("+1") ]),
+//     button([ OnClick(Reset()) ], [ text("Reset") ])
+//   ])
+// ```
 
 ### Part 2: Add "Reset" button
 
@@ -203,45 +210,45 @@ then open the `./out/counter.html` file in your browser
 You shouldn't need to change `main` below.
 
 As always, when you're done with this task, put something in the `done` variable below to make the test pass.
-```effekt
-def done(): String = "Done" // TODO: when you're done, set this to something non-empty :)
+// ```effekt
+// def done(): String = "Done" // TODO: when you're done, set this to something non-empty :)
 
-def main() = {
-  // Gets the app div (or creates it if it doesn't exist yet)
-  val appDiv = getElementById("app").getOrElse { 
-    val newDiv = createElement("div").setAttribute("id", "app")
-    documentBody.appendChild(newDiv)
-  }
+// def main() = {
+//   // Gets the app div (or creates it if it doesn't exist yet)
+//   val appDiv = getElementById("app").getOrElse { 
+//     val newDiv = createElement("div").setAttribute("id", "app")
+//     documentBody.appendChild(newDiv)
+//   }
 
-  val init: Int = 0
+//   val init: Int = 0
 
-  // Runs the application
-  run(appDiv, init, Application(
-    box { (ev) =>
-      with counterModel
-      ev.dispatch()
-    },
-    box {
-      with counterModel
-      view()
-    }))
-}
-```
+//   // Runs the application
+//   run(appDiv, init, Application(
+//     box { (ev) =>
+//       with counterModel
+//       ev.dispatch()
+//     },
+//     box {
+//       with counterModel
+//       view()
+//     }))
+// }
+// ```
 
-#### Tests
+// #### Tests
 
-```effekt
-def testSuite() = suite("tasks/dom") {
-  test("part 1: what is St here?") {
-    assertNonempty(whatIsStHere())
-  }
+// ```effekt
+// def testSuite() = suite("tasks/dom") {
+//   test("part 1: what is St here?") {
+//     assertNonempty(whatIsStHere())
+//   }
 
-  test("part 1: what is Ev here?") {
-    assertNonempty(whatIsEvHere())
-  }
+//   test("part 1: what is Ev here?") {
+//     assertNonempty(whatIsEvHere())
+//   }
 
-  test("done?") {
-    assertNonempty(done())
-  }
-}
-```
+//   test("done?") {
+//     assertNonempty(done())
+//   }
+// }
+// ```

@@ -36,6 +36,9 @@ extern io def appendChild(node: Node, child: Node): Node =
 extern io def setAttribute(node: Node, key: String, value: String): Node =
   jsWeb "(function() { ${node}.setAttribute(${key}, ${value}); return ${node} })()"
 
+extern io def setStyle(node: Node, key: String, value: String): Node =
+  jsWeb "(function() { ${node}.style[${key}] = ${value}; return ${node} })()"
+
 extern io def innerHTML(node: Node, contents: String): Node =
   jsWeb "(function() { ${node}.innerHTML = ${contents}; return ${node}; })()"
 
@@ -48,6 +51,12 @@ extern io def requestIdleCallback(callback: (IdleDeadline) => Unit at {io, globa
 
 extern io def onClick(node: Node, handler: () => Unit at {io, global, async}): Unit =
   jsWeb "${node}.addEventListener('click', () => $effekt.runToplevel((ks, k) => ${handler}(ks, k)))"
+
+extern io def onMouseEnter(node: Node, handler: () => Unit at {io, global, async}): Unit =
+  jsWeb "${node}.addEventListener('mouseenter', () => $effekt.runToplevel((ks, k) => ${handler}(ks, k)))"
+
+extern io def onMouseLeave(node: Node, handler: () => Unit at {io, global, async}): Unit =
+  jsWeb "${node}.addEventListener('mouseleave', () => $effekt.runToplevel((ks, k) => ${handler}(ks, k)))"
 
 // print to the browser console
 extern io def consoleLog(msg: String): Unit =

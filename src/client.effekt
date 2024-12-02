@@ -42,17 +42,29 @@ def myRun[St, Ev](root: Node, init: St, app: MyApplication[St, Ev]) = app match 
 
     // renders the Node to the DOM
     def render(html: Html[Ev]): Node = html match {
-      case Text(content) => createTextNode(content)
-      case Element(tag, handler, children) =>
+      case Text(content) => {
+        createTextNode(content)
+      }
+      case Element(tag, handler, children, attributes) =>
         val el = createElement(tag)
         handler.foreach {
           case OnClick(ev) => 
             el.onClick(box { send(ev) })
             ()
           case OnChange(h) => ()
+          case OnMouseEnter(ev) =>
+            el.onMouseEnter(box { send(ev) })
+            ()
+          case OnMouseLeave(ev) =>
+            el.onMouseLeave(box { send(ev) })
+            ()
         }
         children.foreach { child => 
           el.appendChild(child.render)
+          ()
+        }
+        attributes.foreach { attr => 
+          el.setAttribute(attr.name, attr.value)
           ()
         }
         el
@@ -92,7 +104,7 @@ interface Model {
 
 type Event { 
   Change(n: Int);
-  Reset()
+  Reset();
 }
 
 def dispatch(msg: Event) = {
@@ -119,25 +131,65 @@ def counterModel[R] { prog: => R / Model }: R / State[Int] =
     }
 }
 
-def view(): Html[Event] / Model =
-  div([
-    text("Hello World!"),
-    button([ OnClick(Change(-1)) ], [ text("-1") ]),
-    text("Current value: " ++ show( do count() )),
-    button([ OnClick(Change(1)) ], [ text("+1") ]),
-    button([ OnClick(Reset()) ], [ text("Reset") ])
-  ])
+def addBorderOnHover(node: Option[Node]): Unit = {
+  node match {
+    case Some(n) => {
+      n.onMouseEnter(box { n.setStyle("outline", "1px solid white"); ()})
+      n.onMouseLeave(box { n.setStyle("outline", "none"); () })
+    }
+    case None() => ()
+  }
+}
+
+def view(): Html[Event] / Model = {
+  val buttonStyle = """
+    display: inline-block;
+    margin: 0 10px;
+    padding: 10px 20px;
+    background: #287aa6;
+    border: none;
+    border-radius: 5px;
+    color: white;
+    cursor: pointer;
+  """
+  val button1 = button([ OnClick(Change(-1))], [ text("-1") ], 
+    [Attribute("style", buttonStyle), Attribute("id", "button1")])
+  val button2 = button([ OnClick(Change(1))], [ text("+1") ], 
+    [Attribute("style", buttonStyle), Attribute("id", "button2")])
+  val button3 = button([ OnClick(Reset())], [ text("Reset") ], 
+    [Attribute("style", buttonStyle), Attribute("id", "button3")])
+
+
+  div(
+  [
+    div([text("Hello World!")], [Attribute("style", "color: white;")]),
+    div([text("Current value: " ++ show( do count() ))], [Attribute("style", "color: white;")]),
+    div([button1, button2, button3], [Attribute("style", "margin-top: 20px;")])
+  ], 
+  [Attribute("style", "text-align: center;")]
+  )
+}
+
 
 def main() = {
+  documentBody.setAttribute("style", "background: black; font-family: sans-serif;")
+  val appStyle = """
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+  """
+
   val appDiv = getElementById("app").getOrElse { 
-    val newDiv = createElement("div").setAttribute("id", "app")
+    val newDiv = createElement("div").setAttribute("id", "app").setAttribute("style", appStyle)
     documentBody.appendChild(newDiv)
   }
+
   // Get initial state from server
   val response = fetch("http://localhost:3000/count")
   consoleLog(response)
   val initialCount = getCount(response)
-  // consoleLog("Initial count: " ++ show(initialCount))
 
   myRun(appDiv, initialCount, MyApplication(
     box { (ev) =>
@@ -148,4 +200,8 @@ def main() = {
       with counterModel
       view()
     }))
+
+  getElementById("button1").addBorderOnHover()
+  getElementById("button2").addBorderOnHover()
+  getElementById("button3").addBorderOnHover()
 }
