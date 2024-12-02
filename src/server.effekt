@@ -1,0 +1,70 @@
+module serverCounter
+
+import ref
+
+// Node.js HTTP server FFI definitions
+extern type Server
+extern type Request
+extern type Response
+
+extern io def createServer(handler: (Request, Response) => Unit at {io, global}): Server =
+  jsNode "require('http').createServer((req, res) => $effekt.runToplevel((ks, k) => ${handler}(req, res, ks, k)))"
+
+extern io def listen(server: Server, port: Int): Unit =
+  jsNode "${server}.listen(${port})"
+
+extern pure def getUrl(req: Request): String =
+  jsNode "${req}.url"
+
+extern pure def getMethod(req: Request): String =
+  jsNode "${req}.method"
+
+extern io def writeHead(res: Response, status: Int, contentType: String): Unit =
+  jsNode "${res}.writeHead(${status}, { 'Content-Type': ${contentType}, 'Access-Control-Allow-Origin': '*' })"
+
+extern io def end(res: Response, content: String): Unit =
+  jsNode "${res}.end(${content})"
+
+def handleRequest(counter: Ref[Int], req: Request, res: Response): Unit = {
+  val url = getUrl(req).substring(1).split("/")
+  val method = getMethod(req)
+  
+  val path = url match {
+    case Cons(path, _) => path
+    case _ => ""
+  }
+  val arg = url match {
+    case Cons(_, Cons(arg, _)) => arg
+    case _ => ""
+  }
+  println(method ++ " " ++ path ++ " " ++ show(arg))
+
+  (method, path) match {
+    case ("GET", "count") => {
+      writeHead(res, 200, "application/json")
+      end(res, """{"count":""" ++ show(counter.get()) ++ "}")
+    }
+    case ("POST", "change") => {
+      val n = arg.unsafeToInt()
+      counter.set(counter.get() + n)
+      writeHead(res, 200, "application/json")
+      end(res, """{"count":""" ++ show(counter.get()) ++ "}")
+    }
+    case ("POST", "reset") => {
+      counter.set(0)
+      writeHead(res, 200, "application/json")
+      end(res, """{"count":""" ++ show(counter.get()) ++ "}")
+    }
+    case _ => {
+      writeHead(res, 404, "text/plain")
+      end(res, "Not Found")
+    }
+  }
+}
+
+def main() = {
+  val counter = ref(0)
+  val server = createServer(box { (req, res) => handleRequest(counter, req, res) })
+  listen(server, 3000)
+  println("Server running at http://localhost:3000")
+}

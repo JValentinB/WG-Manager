@@ -1,0 +1,21 @@
+// From Exercise 5
+module src/utils/test
+
+// Import stdlib test library
+import test
+
+// Import stdlib formatting
+import string/tty
+
+// Use this to ignore a test
+def ignore(name: String){ body: () => Unit / { Assertion } }: Unit = ()
+
+def assertNonempty(s: String) = {
+  val isEmpty = s == ""
+  do assert(not(isEmpty), Formatted::tryEmit(ANSI::RESET) ++ "Expected: nonempty string\n  Obtained: ".dim ++ "\"\"".red)
+}
+
+def assertNonzero(n: Int) = {
+  val isZero = n == 0
+  do assert(not(isZero), Formatted::tryEmit(ANSI::RESET) ++ "Expected: nonzero number\n  Obtained: ".dim ++ show(n).red)
+}

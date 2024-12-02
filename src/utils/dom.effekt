@@ -1,0 +1,54 @@
+// From Exercise 5
+module dom
+
+import test
+import src/utils/test
+
+import option
+
+/// Represents a DOM node.
+extern type Node
+
+// Can be null/undefined!
+extern io def unsafeGetElementById(id: String): Node =
+  jsWeb "document.getElementById(${id})"
+
+// Here we're wrapping the unsafe version to do 'undefinedToOption' (to make it safer to use)
+def getElementById(id: String): Option[Node] = {
+  val unsafeElement = unsafeGetElementById(id)
+  undefinedToOption(unsafeElement)
+}
+
+extern pure def getDocumentBody(): Node =
+  jsWeb "(document.body)" // defensive parens are sometimes useful
+
+val documentBody: Node = getDocumentBody()
+
+extern io def createElement(tag: String): Node =
+  jsWeb "document.createElement(${tag})"
+
+extern io def createTextNode(text: String): Node =
+  jsWeb "document.createTextNode(${text})"
+
+extern io def appendChild(node: Node, child: Node): Node =
+  jsWeb "${node}.appendChild(${child})"
+
+extern io def setAttribute(node: Node, key: String, value: String): Node =
+  jsWeb "(function() { ${node}.setAttribute(${key}, ${value}); return ${node} })()"
+
+extern io def innerHTML(node: Node, contents: String): Node =
+  jsWeb "(function() { ${node}.innerHTML = ${contents}; return ${node}; })()"
+
+def clear(node: Node) = node.innerHTML("")
+
+extern type IdleDeadline
+
+extern io def requestIdleCallback(callback: (IdleDeadline) => Unit at {io, global, async}): Unit =
+  jsWeb "window.requestIdleCallback(deadline => $effekt.runToplevel((ks, k) => ${callback}(deadline, ks, k)))"
+
+extern io def onClick(node: Node, handler: () => Unit at {io, global, async}): Unit =
+  jsWeb "${node}.addEventListener('click', () => $effekt.runToplevel((ks, k) => ${handler}(ks, k)))"
+
+// print to the browser console
+extern io def consoleLog(msg: String): Unit =
+  jsWeb "console.log(${msg})"

@@ -1,0 +1,151 @@
+// Based on Exercise5
+module clientCounter
+
+import src/utils/dom
+import src/counter
+
+import ref
+import string
+
+extern async def fetch(url: String): String =
+  jsWeb """$effekt.capture(callback => 
+    fetch(${url})
+      .then(r => r.json())
+      .then(result => callback(result))
+      .catch(error => console.error(error))
+  )"""
+
+extern async def post(url: String): String =
+  jsWeb """$effekt.capture(callback => 
+    fetch(${url}, { method: 'POST' })
+      .then(r => r.json())
+      .then(result => callback(result))
+      .catch(error => console.error(error))
+  )"""
+
+extern pure def getCount(json: String): Int =
+  jsWeb """(data => {
+      return data.count;
+    })(${json})"""
+
+record MyApplication[St, Ev](
+  update: Ev => Unit / State[St] at {io, async},
+  view: () => Html[Ev] / State[St] at {io, async}
+)
+
+def myRun[St, Ev](root: Node, init: St, app: MyApplication[St, Ev]) = app match {
+  case MyApplication(update, view) =>
+    val inbox = ref[List[Ev]](Nil())
+    val state = ref(init)
+
+    def send(ev: Ev): Unit = inbox.set(Cons(ev, inbox.get))
+
+    // renders the Node to the DOM
+    def render(html: Html[Ev]): Node = html match {
+      case Text(content) => createTextNode(content)
+      case Element(tag, handler, children) =>
+        val el = createElement(tag)
+        handler.foreach {
+          case OnClick(ev) => 
+            el.onClick(box { send(ev) })
+            ()
+          case OnChange(h) => ()
+        }
+        children.foreach { child => 
+          el.appendChild(child.render)
+          ()
+        }
+        el
+    }
+
+    // renders the app with the current state
+    def render(): Unit = {
+      val rendered = statefully(state) { view() }.render
+      root.clear;
+      root.appendChild(rendered);
+      ()
+    }
+
+    def loop(deadline: IdleDeadline): Unit = {
+      val messages = inbox.get.reverse
+      inbox.set(Nil())
+
+      if (messages.nonEmpty) {
+        messages.foreach { ev =>
+          statefully(state) { update(ev) }
+        }
+
+        render()
+      }
+      requestIdleCallback(box loop)
+    }
+
+    render()
+    requestIdleCallback(box loop)
+}
+
+interface Model {
+  def change(n: Int): Unit
+  def reset(): Unit
+  def count(): Int
+}
+
+type Event { 
+  Change(n: Int);
+  Reset()
+}
+
+def dispatch(msg: Event) = {
+  msg match {
+    case Change(n) => do change(n)
+    case Reset() => do reset()
+  }
+}
+
+// Modified to use HTTP requests
+def counterModel[R] { prog: => R / Model }: R / State[Int] =
+  try { prog() }
+  with Model {
+    def count() = resume(do getState())
+    def change(n: Int) = {
+      val response = post("http://localhost:3000/change/" ++ show(n))
+      do setState(getCount(response))
+      resume(())
+    }
+    def reset() = {
+      val response = post("http://localhost:3000/reset")
+      do setState(getCount(response))
+      resume(())
+    }
+}
+
+def view(): Html[Event] / Model =
+  div([
+    text("Hello World!"),
+    button([ OnClick(Change(-1)) ], [ text("-1") ]),
+    text("Current value: " ++ show( do count() )),
+    button([ OnClick(Change(1)) ], [ text("+1") ]),
+    button([ OnClick(Reset()) ], [ text("Reset") ])
+  ])
+
+def main() = {
+  val appDiv = getElementById("app").getOrElse { 
+    val newDiv = createElement("div").setAttribute("id", "app")
+    documentBody.appendChild(newDiv)
+  }
+  // Get initial state from server
+  val response = fetch("http://localhost:3000/count")
+  consoleLog(response)
+  val initialCount = getCount(response)
+  // consoleLog("Initial count: " ++ show(initialCount))
+
+  myRun(appDiv, initialCount, MyApplication(
+    box { (ev) =>
+      with counterModel
+      ev.dispatch()
+    },
+    box {
+      with counterModel
+      view()
+    }))
+}
