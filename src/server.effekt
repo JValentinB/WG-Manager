@@ -1,4 +1,4 @@
-module serverCounter
+module server
 
 import ref
 import io

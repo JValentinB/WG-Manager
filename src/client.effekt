@@ -1,5 +1,5 @@
 // Based on Exercise5
-module clientCounter
+module client
 
 import src/utils/dom
 import src/counter
