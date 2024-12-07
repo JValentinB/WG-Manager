@@ -1,0 +1,72 @@
+// Based on Exercise 5
+module counter
+
+import src/utils/dom
+
+import ref
+import string
+import test
+
+import src/utils/test
+
+// type Html[Ev] {
+//   Element(tag: String, handler: List[EventHandler[Ev]], children: List[Html[Ev]], attributes: List[Attribute]);
+//   Text(content: String);
+// }
+
+record HtmlElement[Ev] (
+  node: Node,
+  tag: String,
+  text: String, 
+  parent: Option[HtmlElement[Ev]], 
+  children: List[HtmlElement[Ev]], 
+  attributes: List[Attribute],
+  handlers: List[EventHandler[Ev]]
+)
+
+record Attribute (
+  name: String,
+  value: String
+)
+
+type EventHandler[Ev] { 
+  OnClick(handler: Ev);
+  OnChange(handler: (String) => Ev at {});
+  OnMouseEnter(handler: Ev);
+  OnMouseLeave(handler: Ev)
+}
+
+effect addingChild[Ev](child: HtmlElement[Ev]): Unit
+
+def button[Ev](text: String, children: List[HtmlElement[Ev]], attributes: List[Attribute], handlers: List[EventHandler[Ev]]) =
+  HtmlElement(createElement("button"), "button", text, None(), children, attributes, handlers)
+
+def div[Ev](text: String, children: List[HtmlElement[Ev]], attributes: List[Attribute], handlers: List[EventHandler[Ev]]) =
+  HtmlElement(createElement("div"), "div", text, None(), children, attributes, handlers)
+
+
+
+def appendChild[Ev](parent: HtmlElement[Ev], child: HtmlElement[Ev]): Unit = {
+  parent.children.append([child])
+  ()
+}
+
+def addHandlers[Ev](element: HtmlElement[Ev], handlers: List[EventHandler[Ev]]): HtmlElement[Ev] = {
+  val newHandlers = element.handlers.append(handlers)
+  val newElement = HtmlElement(element.node, element.tag, element.text, element.parent, element.children, element.attributes, newHandlers)
+  newElement
+}
+
+
+
+interface State[St] {
+  def getState(): St
+  def setState(s: St): Unit
+}
+
+/// Handle the `State` effect using a `Ref` (global mutable reference)
+def statefully[R, St](r: Ref[St]) { prog: () => R / State[St] }: R =
+  try { prog() } with State[St] {
+    def getState() = resume(r.get())
+    def setState(newState) = { r.set(newState); resume(()) }
+  }

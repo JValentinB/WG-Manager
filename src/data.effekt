@@ -1,0 +1,20 @@
+module data
+
+import ref
+
+// --------------------------------------------------------------------------------
+// There are three main types of data for this webtool: 
+// - a flatmate
+//   - name
+// - a task
+//   - name
+//   - description
+//   - schedule
+// - a common consumable
+//   - name
+//   - description
+// --------------------------------------------------------------------------------
+
+record Flatmate(name: String)
+record Task(name: String, description: String, schedule: String)
+record Consumable(name: String, description: String)
