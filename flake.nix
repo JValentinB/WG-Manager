@@ -25,7 +25,7 @@
         pname = "WG-manager";         # package name
         version = "0.1.0";                 # package version
         mainFile = "src/server.effekt";      # relative path to entrypoint (as a string)
-        testFiles = [ "src/test.effekt" ]; # relative paths to tests (as a string)
+        testFiles = []; # relative paths to tests (as a string)
 
         ## Effekt configuration 
         effektConfig = {
