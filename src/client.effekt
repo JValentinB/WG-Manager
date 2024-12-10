@@ -96,7 +96,6 @@ def myRun[St](rootElement: HtmlElement[Event], init: St, app: MyApplication[St, 
       node = node.innerHTML(html.text)
       html.children.foreach { child => 
         node.appendChild(child.render)
-        // child.setParent(html)
         ()
       }
       html.attributes.foreach { attr => 

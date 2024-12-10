@@ -243,6 +243,36 @@ def readQuotedString(): Unit / { Scan[Char], emit[Char], Exception[WrongFormat] 
   }
 }
 
+/// Gets the value of a given ASCII digit in base 16
+def hexDigitValue(char: Char): Option[Int] =
+  // TODO use fail
+  char match {
+    case char and char >= '0' && char <= '9' => Some(char.toInt - '0'.toInt)
+    case char and char >= 'A' && char <= 'F' => Some((char.toInt - 'A'.toInt) + 10)
+    case char and char >= 'a' && char <= 'f' => Some((char.toInt - 'a'.toInt) + 10)
+    case _ => None()
+  }
+
+/// Gets the value of a given ASCII digit in the given base up to 36
+def digitValue(char: Char, base: Int): Option[Int] = {
+  // TODO use fail
+  val perhapsDigit = char match {
+      case char and char >= '0' && char <= '9' => Some(char.toInt - '0'.toInt)
+      case char and char >= 'A' && char <= 'Z' => Some((char.toInt - 'A'.toInt) + 10)
+      case char and char >= 'a' && char <= 'z' => Some((char.toInt - 'a'.toInt) + 10)
+      case _ => None()
+    }
+  perhapsDigit match {
+    case Some(digit) =>
+      if (digit < base) {
+        Some(digit)
+      } else {
+        None()
+      }
+    case None() => None()
+  }
+}
+
 
 
 namespace test {

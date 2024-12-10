@@ -28,6 +28,9 @@ extern io def writeHead(res: Response, status: Int, contentType: String): Unit =
 extern io def end(res: Response, content: String): Unit =
   jsNode "${res}.end(${content})"
 
+
+
+// Handling network requests
 def handleRequest(counter: Ref[Int], req: Request, res: Response): Unit = {
   val url = getUrl(req).substring(1).split("/")
   val method = getMethod(req)
@@ -45,7 +48,8 @@ def handleRequest(counter: Ref[Int], req: Request, res: Response): Unit = {
   (method, path) match {
     case ("GET", "") => {
       with on[IOError].panic;
-      val htmlContent = readFile("./out/client.html")
+      // val htmlContent = readFile("./out/client.html")
+      val htmlContent = readFile("./out/data.html")
       writeHead(res, 200, "text/html")
       end(res, htmlContent)
     }
@@ -55,11 +59,17 @@ def handleRequest(counter: Ref[Int], req: Request, res: Response): Unit = {
     }
     case ("GET", file) => {
       with on[IOError].panic;
-      if (file.endsWith(".js")) {
-        val content = readFile("./out/" ++ file)
+      val content = readFile("./out/" ++ file)
+      if (file.endsWith(".html")) {
+        writeHead(res, 200, "text/html")
+      } else if (file.endsWith(".js")) {
         writeHead(res, 200, "application/javascript")
-        end(res, content)
-      } 
+      } else if (file.endsWith(".css")) {
+        writeHead(res, 200, "text/css")
+      } else if (file.endsWith(".ico")) {
+        writeHead(res, 200, "image/x-icon")
+      }
+      end(res, content)
     }
     case ("POST", "change") => {
       val n = arg.unsafeToInt()

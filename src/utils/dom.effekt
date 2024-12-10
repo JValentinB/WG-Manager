@@ -59,5 +59,16 @@ extern io def onMouseLeave(node: Node, handler: () => Unit at {io, global, async
   jsWeb "${node}.addEventListener('mouseleave', () => $effekt.runToplevel((ks, k) => ${handler}(ks, k)))"
 
 // print to the browser console
-extern io def consoleLog(msg: String): Unit =
+extern io def consoleLog[T](msg: T): Unit =
   jsWeb "console.log(${msg})"
+
+extern async def addScriptToHead(src: String): Unit =
+  jsWeb """$effekt.capture(callback => {
+    const script = document.createElement('script');
+    script.src = ${src};
+    script.type = 'text/javascript';
+    script.async = true;
+    document.head.appendChild(script);
+    script.onload = () => callback();
+    script.onerror = () => console.error('Failed to load script:', ${src});
+  })"""
