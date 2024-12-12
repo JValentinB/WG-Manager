@@ -5,6 +5,8 @@ import io
 import io/filesystem
 import io/error
 
+import src/database
+
 // Node.js HTTP server FFI definitions
 extern type Server
 extern type Request
@@ -31,7 +33,7 @@ extern io def end(res: Response, content: String): Unit =
 
 
 // Handling network requests
-def handleRequest(counter: Ref[Int], req: Request, res: Response): Unit = {
+def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request, res: Response): Unit = {
   val url = getUrl(req).substring(1).split("/")
   val method = getMethod(req)
   
@@ -48,8 +50,7 @@ def handleRequest(counter: Ref[Int], req: Request, res: Response): Unit = {
   (method, path) match {
     case ("GET", "") => {
       with on[IOError].panic;
-      // val htmlContent = readFile("./out/client.html")
-      val htmlContent = readFile("./out/data.html")
+      val htmlContent = readFile("./out/client.html")
       writeHead(res, 200, "text/html")
       end(res, htmlContent)
     }
@@ -82,6 +83,12 @@ def handleRequest(counter: Ref[Int], req: Request, res: Response): Unit = {
       writeHead(res, 200, "application/json")
       end(res, """{"count":""" ++ show(counter.get()) ++ "}")
     }
+    case ("POST", "addFlatmate") => {
+      db.insertFlatmate(arg)
+      db.saveDatabase(dbPath)
+      writeHead(res, 200, "application/json")
+      end(res, """{"success":true}""")
+    }
     case _ => {
       writeHead(res, 404, "text/plain")
       end(res, "Not Found")
@@ -90,8 +97,12 @@ def handleRequest(counter: Ref[Int], req: Request, res: Response): Unit = {
 }
 
 def main() = {
+  val databasePath = "./data.sqlite"
+  val db = openWGManagerDatabase(databasePath)
   val counter = ref(0)
-  val server = createServer(box { (req, res) => handleRequest(counter, req, res) })
+
+
+  val server = createServer(box { (req, res) => handleRequest(counter, db, databasePath, req, res) })
   listen(server, 3000)
   println("Server running at http://localhost:3000")
 }

@@ -44,6 +44,9 @@ def button[Ev](text: String, children: List[HtmlElement[Ev]], attributes: List[A
 def div[Ev](text: String, children: List[HtmlElement[Ev]], attributes: List[Attribute], handlers: List[EventHandler[Ev]]) =
   HtmlElement(createElement("div"), "div", text, None(), children, attributes, handlers)
 
+def input[Ev](text: String, children: List[HtmlElement[Ev]], attributes: List[Attribute], handlers: List[EventHandler[Ev]]) =
+  HtmlElement(createElement("input"), "input", text, None(), children, attributes, handlers)
+
 
 
 def appendChild[Ev](parent: HtmlElement[Ev], child: HtmlElement[Ev]): Unit = {

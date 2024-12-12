@@ -42,6 +42,9 @@ extern io def setStyle(node: Node, key: String, value: String): Node =
 extern io def innerHTML(node: Node, contents: String): Node =
   jsWeb "(function() { ${node}.innerHTML = ${contents}; return ${node}; })()"
 
+extern io def getValue(node: Node): String =
+  jsWeb "${node}.value"
+  
 def clear(node: Node) = node.innerHTML("")
 
 extern type IdleDeadline

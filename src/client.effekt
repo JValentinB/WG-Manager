@@ -36,11 +36,18 @@ interface Model {
   def borderOff(node: Node): Unit
 }
 
+interface FlatmateModel {
+  def addFlatmate(input: Node): Unit
+  def cancel(): Unit
+}
+
 type Event { 
   Change(n: Int);
   Reset();
   BorderOn(node: Node);
   BorderOff(node: Node);
+  AddFlatmate(input: Node);
+  Cancel();
 }
 
 def dispatch(msg: Event) = {
@@ -49,6 +56,16 @@ def dispatch(msg: Event) = {
     case Reset() => do reset()
     case BorderOn(node) => do borderOn(node)
     case BorderOff(node) => do borderOff(node)
+    case AddFlatmate(input) => do addFlatmate(input) 
+    case Cancel() => do cancel()
+  }
+}
+
+def dispatchFlatmate(msg: Event) = {
+  msg match {
+    case AddFlatmate(input) => do addFlatmate(input) 
+    case Cancel() => do cancel()
+    case _ => ()
   }
 }
 
@@ -76,6 +93,19 @@ def counterModel[R] { prog: => R / Model }: R / State[Int] =
       resume(())
     }
 }
+
+def flatmateModel[R] { prog: => R / FlatmateModel }: R / State[Int] =
+  try { prog() }
+  with FlatmateModel {
+    def addFlatmate(input: Node) = {
+      val name = input.getValue()
+      val response = post("http://localhost:3000/addFlatmate/" ++ name)
+      resume(())
+    }
+    def cancel() = {
+      resume(())
+    }
+  }
 
 record MyApplication[St, Ev](
   update: Ev => Unit / State[St] at {io, async},
@@ -152,7 +182,36 @@ def myRun[St](rootElement: HtmlElement[Event], init: St, app: MyApplication[St, 
     requestIdleCallback(box loop)
 }
 
-def view(): HtmlElement[Event] / Model = {
+// def view(): HtmlElement[Event] / Model = {
+//   val buttonStyle = """
+//     display: inline-block;
+//     margin: 0 10px;
+//     padding: 10px 20px;
+//     background: #287aa6;
+//     border: none;
+//     border-radius: 5px;
+//     color: white;
+//     cursor: pointer;
+//   """
+//   var button1 = button("-1", [], [Attribute("style", buttonStyle), Attribute("id", "button1")], [OnClick(Change(-1))])
+//   var button2 = button("+1", [], [Attribute("style", buttonStyle), Attribute("id", "button2")], [OnClick(Change(1))])
+//   var button3 = button("Reset", [], [Attribute("style", buttonStyle), Attribute("id", "button3")], [OnClick(Reset())])
+//   button1 = button1.addHandlers([OnMouseEnter(BorderOn(button1.node)), OnMouseLeave(BorderOff(button1.node))])
+//   button2 = button2.addHandlers([OnMouseEnter(BorderOn(button2.node)), OnMouseLeave(BorderOff(button2.node))])
+//   button3 = button3.addHandlers([OnMouseEnter(BorderOn(button3.node)), OnMouseLeave(BorderOff(button3.node))])
+
+//   div(
+//     "",
+//     [
+//       div("Hello World!",[], [Attribute("style", "color: white;")], []),
+//       div("Current value: " ++ show( do count()), [], [Attribute("style", "color: white;")], []),
+//       div("", [button1, button2, button3], [Attribute("style", "margin-top: 20px;")], [])
+//     ],
+//     [Attribute("style", "text-align: center;")], []
+//   )
+// }
+
+def addFlatmateView(): HtmlElement[Event] / FlatmateModel = {
   val buttonStyle = """
     display: inline-block;
     margin: 0 10px;
@@ -163,19 +222,26 @@ def view(): HtmlElement[Event] / Model = {
     color: white;
     cursor: pointer;
   """
-  var button1 = button("-1", [], [Attribute("style", buttonStyle), Attribute("id", "button1")], [OnClick(Change(-1))])
-  var button2 = button("+1", [], [Attribute("style", buttonStyle), Attribute("id", "button2")], [OnClick(Change(1))])
-  var button3 = button("Reset", [], [Attribute("style", buttonStyle), Attribute("id", "button3")], [OnClick(Reset())])
-  button1 = button1.addHandlers([OnMouseEnter(BorderOn(button1.node)), OnMouseLeave(BorderOff(button1.node))])
-  button2 = button2.addHandlers([OnMouseEnter(BorderOn(button2.node)), OnMouseLeave(BorderOff(button2.node))])
-  button3 = button3.addHandlers([OnMouseEnter(BorderOn(button3.node)), OnMouseLeave(BorderOff(button3.node))])
+  var addButton = button("Add flatmate", [], 
+    [Attribute("style", buttonStyle), Attribute("id", "addButton")], [])
+  val cancelButton = button("Cancel", [], 
+    [Attribute("style", buttonStyle), Attribute("id", "cancelButton")], [])
+
+  val nameStyle = """
+    display: inline-block;
+    margin: 0 10px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+  """
+  val nameInput = input("", [], [Attribute("id", "nameInput"), Attribute("style", nameStyle), Attribute("type", "text")], [])
+  addButton = addButton.addHandlers([OnClick(AddFlatmate(nameInput.node))])
 
   div(
     "",
     [
-      div("Hello World!",[], [Attribute("style", "color: white;")], []),
-      div("Current value: " ++ show( do count()), [], [Attribute("style", "color: white;")], []),
-      div("", [button1, button2, button3], [Attribute("style", "margin-top: 20px;")], [])
+      nameInput,
+      div("", [addButton, cancelButton], [Attribute("style", "margin-top: 20px;")], [])
     ],
     [Attribute("style", "text-align: center;")], []
   )
@@ -207,13 +273,23 @@ def main() = {
   }
   val appElement = HtmlElement(appDiv, "div", "", None(), [], attributesList, [])
 
+  // myRun(appElement, initialCount, MyApplication(
+  //   box { (ev) =>
+  //     with counterModel
+  //     ev.dispatch()
+  //   },
+  //   box {
+  //     with counterModel
+  //     // view()
+  //     // addFlatmateView()
+  //   }))
   myRun(appElement, initialCount, MyApplication(
     box { (ev) =>
-      with counterModel
-      ev.dispatch()
+      with flatmateModel
+      ev.dispatchFlatmate()
     },
     box {
-      with counterModel
-      view()
+      with flatmateModel
+      addFlatmateView()
     }))
 }
