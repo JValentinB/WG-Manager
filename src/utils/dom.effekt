@@ -2,7 +2,7 @@
 module dom
 
 import test
-import src/utils/test
+import src/database
 
 import option
 
@@ -61,6 +61,40 @@ extern io def onMouseEnter(node: Node, handler: () => Unit at {io, global, async
 extern io def onMouseLeave(node: Node, handler: () => Unit at {io, global, async}): Unit =
   jsWeb "${node}.addEventListener('mouseleave', () => $effekt.runToplevel((ks, k) => ${handler}(ks, k)))"
 
+
+
+extern async def fetch(endpoint: String): String =
+  jsWeb """$effekt.capture(callback => 
+      fetch(window.location.origin + ${endpoint})
+        .then(r => r.json())
+        .then(result => callback(result))
+        .catch(error => console.error(error))
+    )"""
+
+extern async def post(endpoint: String): String =
+  jsWeb """$effekt.capture(callback => 
+    fetch(window.location.origin + ${endpoint}, { method: 'POST' })
+      .then(r => r.json())
+      .then(result => callback(result))
+      .catch(error => console.error(error))
+  )"""
+
+extern async def addScriptToBody(src: String): Unit =
+  jsWeb """$effekt.capture(callback => {
+    const script = document.createElement('script');
+    script.src = ${src};
+    script.onload = () => callback();
+    script.onerror = (error) => console.error('Failed to load script:', error);
+    document.body.appendChild(script);
+  })"""
+
+extern pure def getCount(json: String): Int =
+  jsWeb """(data => {
+      return data.count;
+    })(${json})"""
+
+    
+
 // print to the browser console
 extern io def consoleLog[T](msg: T): Unit =
   jsWeb "console.log(${msg})"
@@ -75,3 +109,4 @@ extern async def addScriptToHead(src: String): Unit =
     script.onload = () => callback();
     script.onerror = () => console.error('Failed to load script:', ${src});
   })"""
+

@@ -7,21 +7,25 @@ import ref
 import string
 import test
 
-import src/utils/test
+// import src/utils/test
 
-// type Html[Ev] {
-//   Element(tag: String, handler: List[EventHandler[Ev]], children: List[Html[Ev]], attributes: List[Attribute]);
+// type Html[St, Ev] {
+//   Element(tag: String, handler: List[EventHandler[St, Ev]], children: List[Html[Ev]], attributes: List[Attribute]);
 //   Text(content: String);
 // }
+record Application[St, Ev](
+  update: Ev => Unit / State[St] at {io, global, async},
+  view: () => HtmlElement[St, Ev] / State[St] at {io, global, async}
+)
 
-record HtmlElement[Ev] (
+record HtmlElement[St, Ev] (
   node: Node,
   tag: String,
   text: String, 
-  parent: Option[HtmlElement[Ev]], 
-  children: List[HtmlElement[Ev]], 
+  children: List[HtmlElement[St, Ev]], 
   attributes: List[Attribute],
-  handlers: List[EventHandler[Ev]]
+  handlers: List[EventHandler[Ev]],
+  app: Application[St, Ev]
 )
 
 record Attribute (
@@ -36,27 +40,27 @@ type EventHandler[Ev] {
   OnMouseLeave(handler: Ev)
 }
 
-effect addingChild[Ev](child: HtmlElement[Ev]): Unit
+// effect addingChild[St, Ev](child: HtmlElement[St, Ev]): Unit
 
-def button[Ev](text: String, children: List[HtmlElement[Ev]], attributes: List[Attribute], handlers: List[EventHandler[Ev]]) =
-  HtmlElement(createElement("button"), "button", text, None(), children, attributes, handlers)
+def button[St, Ev](text: String, children: List[HtmlElement[St, Ev]], attributes: List[Attribute], handlers: List[EventHandler[Ev]], app: Application[St, Ev]) =
+  HtmlElement(createElement("button"), "button", text, children, attributes, handlers, app)
 
-def div[Ev](text: String, children: List[HtmlElement[Ev]], attributes: List[Attribute], handlers: List[EventHandler[Ev]]) =
-  HtmlElement(createElement("div"), "div", text, None(), children, attributes, handlers)
+def div[St, Ev](text: String, children: List[HtmlElement[St, Ev]], attributes: List[Attribute], handlers: List[EventHandler[Ev]], app: Application[St, Ev]) =
+  HtmlElement(createElement("div"), "div", text, children, attributes, handlers, app)
 
-def input[Ev](text: String, children: List[HtmlElement[Ev]], attributes: List[Attribute], handlers: List[EventHandler[Ev]]) =
-  HtmlElement(createElement("input"), "input", text, None(), children, attributes, handlers)
+def input[St, Ev](text: String, children: List[HtmlElement[St, Ev]], attributes: List[Attribute], handlers: List[EventHandler[Ev]], app: Application[St, Ev]) =
+  HtmlElement(createElement("input"), "input", text, children, attributes, handlers, app)
 
 
 
-def appendChild[Ev](parent: HtmlElement[Ev], child: HtmlElement[Ev]): Unit = {
+def appendChild[St, Ev](parent: HtmlElement[St, Ev], child: HtmlElement[St, Ev]): Unit = {
   parent.children.append([child])
   ()
 }
 
-def addHandlers[Ev](element: HtmlElement[Ev], handlers: List[EventHandler[Ev]]): HtmlElement[Ev] = {
+def addHandlers[St, Ev](element: HtmlElement[St, Ev], handlers: List[EventHandler[Ev]]): HtmlElement[St, Ev] = {
   val newHandlers = element.handlers.append(handlers)
-  val newElement = HtmlElement(element.node, element.tag, element.text, element.parent, element.children, element.attributes, newHandlers)
+  val newElement = HtmlElement(element.node, element.tag, element.text, element.children, element.attributes, newHandlers, element.app)
   newElement
 }
 

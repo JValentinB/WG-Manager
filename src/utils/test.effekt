@@ -5,7 +5,7 @@ module src/utils/test
 import test
 
 // Import stdlib formatting
-import string/tty
+// import string/tty
 
 // Use this to ignore a test
 def ignore(name: String){ body: () => Unit / { Assertion } }: Unit = ()

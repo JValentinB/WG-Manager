@@ -1,4 +1,4 @@
-module database
+module databaseWeb
 
 import ref
 import array
@@ -30,56 +30,54 @@ import option
 // Sqlite FFI definitions
 extern type Database
 
-extern io def consoleLog1[T](msg: T): Unit =
-  jsWeb "console.log(${msg})"
-
-extern async def databaseFileExists(filePath: String): Bool =
-  jsNode """$effekt.capture((callback) => {
-    const exists = fs.existsSync(${filePath});
-    callback(exists);
-  })"""
-
-extern async def initDatabase(): Database =
-jsNode """$effekt.capture(async (callback) => {
-    const sql = require('sql.js');
-    const initSqlJs = sql.default;
-    const SQL = await initSqlJs();
-    const db = new SQL.Database();
-    callback(db);
-  })"""
-
-extern async def openDatabase(filePath: String): Database =
-  jsNode """$effekt.capture(async (callback) => {
-    const sql = require('sql.js');
-    const initSqlJs = sql.default;
-    const SQL = await initSqlJs();
-    const fileBuffer = fs.readFileSync(${filePath});
-    const db = new SQL.Database(fileBuffer);
-    callback(db);
-  })"""
-
-extern async def saveDatabase(db: Database, filePath: String): Unit =
-  jsNode """$effekt.capture(async (callback) => {
-    const binaryData = ${db}.export();
-    fs.writeFileSync(${filePath}, Buffer.from(binaryData));
-    callback();
+extern async def fetchDatabase(endpoint: String): Database =
+  jsWeb """$effekt.capture(callback => {
+    const loadSqlJs = () => {
+      fetch(window.location.origin + ${endpoint})
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(response.statusText);
+          }
+          return response.arrayBuffer();
+        })
+        .then(buffer => {
+          console.log("Fetched the database file successfully");
+          const config = {
+            locateFile: function(file) {
+              return 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/' + file;
+            }
+          };
+          initSqlJs(config).then(SQL => {
+            console.log("SQL.js initialized");
+            const db = new SQL.Database(new Uint8Array(buffer));
+            console.log("Database initialized");
+            callback(db); // Pass the db instance to the Effekt world
+          }).catch(error => {
+            console.error("Failed to initialize SQL.js:", error);
+          });
+        })
+        .catch(error => {
+          console.error("Error during fetch or processing:", error);
+        });
+    };
+    loadSqlJs();
   })"""
 
 extern async def createTable(db: Database, query: String): Unit =
-  jsNode """$effekt.capture((callback) => {
+  jsWeb """$effekt.capture((callback) => {
     ${db}.run(${query});
     callback();
   })"""
 
 extern async def insertData(db: Database, query: String, params: Array[String]): Unit =
-  jsNode """$effekt.capture(async (callback) => {
+  jsWeb """$effekt.capture(async (callback) => {
     const stmt = ${db}.prepare(${query});
     stmt.run(${params});
     callback();
   })"""
 
 extern async def readData(db: Database, query: String): Array[Array[String]] =
-  jsNode """$effekt.capture((callback) => {
+  jsWeb """$effekt.capture((callback) => {
     const stmt = ${db}.prepare(${query});
     const rows = [];
     while (stmt.step()) {
@@ -91,7 +89,7 @@ extern async def readData(db: Database, query: String): Array[Array[String]] =
   })"""
 
 extern async def readDataWithParams(db: Database, query: String, param: String): Array[String] =
-  jsNode """$effekt.capture((callback) => {
+  jsWeb """$effekt.capture((callback) => {
     const stmt = ${db}.prepare(${query});
     stmt.bind(${param});
     callback(stmt.getAsObject());
@@ -184,52 +182,4 @@ def getTaskInfo(db: Database, name: String): Array[String] = {
 def getConsumableInfo(db: Database, name: String): Array[String] = {
   val query = "SELECT * FROM consumables WHERE name = ?"
   db.readDataWithParams(query, name)
-}
-
-def openWGManagerDatabase(databasePath: String): Database = {
-  val dbExists = databaseFileExists(databasePath)
-  val db = if (dbExists) {
-    println("Database file exists, opening...")
-    openDatabase(databasePath)
-  } else {
-    println("Database file does not exist, creating...")
-    val initDb = initDatabase()
-    initDb.createFlatmateTable()
-    initDb.createTaskTable()
-    initDb.createConsumableTable()
-
-    saveDatabase(initDb, databasePath)
-    initDb
-  }
-  db
-}
-
-
-def main() = {
-  val databasePath = "./data.sqlite"
-
-  val dbExists = databaseFileExists(databasePath)
-  val db = if (dbExists) {
-    println("Database file exists, opening...")
-    openDatabase(databasePath)
-  } else {
-    println("Database file does not exist, creating...")
-    val initDb = initDatabase()
-    initDb.createFlatmateTable()
-    initDb.createTaskTable()
-    initDb.createConsumableTable()
-
-    saveDatabase(initDb, databasePath)
-    initDb
-  }
-  // db.insertFlatmate("Robert")
-  // db.insertTask(["Task 1", "Description 1", "Schedule 1", "Last done 1", "Assigned flatmates 1", "flatmates next in turn 1"])
-  // db.saveDatabase(databasePath)
-
-  val flatmates = getFlatmates(db)
-  flatmates.foreach { flatmate =>
-    flatmate.foreach { name =>
-      println(name)
-    }
-  }
 }

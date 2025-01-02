@@ -3,43 +3,11 @@ module client
 
 import src/utils/dom
 import src/utils/counter
+import src/styles
+import src/databaseWeb
 
 import ref
 import string
-
-extern async def fetch(url: String): String =
-  jsWeb """$effekt.capture(callback => 
-    fetch(${url})
-      .then(r => r.json())
-      .then(result => callback(result))
-      .catch(error => console.error(error))
-  )"""
-
-extern async def post(url: String): String =
-  jsWeb """$effekt.capture(callback => 
-    fetch(${url}, { method: 'POST' })
-      .then(r => r.json())
-      .then(result => callback(result))
-      .catch(error => console.error(error))
-  )"""
-
-extern pure def getCount(json: String): Int =
-  jsWeb """(data => {
-      return data.count;
-    })(${json})"""
-
-interface Model {
-  def change(n: Int): Unit
-  def reset(): Unit
-  def count(): Int
-  def borderOn(node: Node): Unit
-  def borderOff(node: Node): Unit
-}
-
-interface FlatmateModel {
-  def addFlatmate(input: Node): Unit
-  def cancel(): Unit
-}
 
 type Event { 
   Change(n: Int);
@@ -48,80 +16,24 @@ type Event {
   BorderOff(node: Node);
   AddFlatmate(input: Node);
   Cancel();
+  OpenSettings();
+  CloseSettings();
 }
 
-def dispatch(msg: Event) = {
-  msg match {
-    case Change(n) => do change(n)
-    case Reset() => do reset()
-    case BorderOn(node) => do borderOn(node)
-    case BorderOff(node) => do borderOff(node)
-    case AddFlatmate(input) => do addFlatmate(input) 
-    case Cancel() => do cancel()
-  }
-}
-
-def dispatchFlatmate(msg: Event) = {
-  msg match {
-    case AddFlatmate(input) => do addFlatmate(input) 
-    case Cancel() => do cancel()
-    case _ => ()
-  }
-}
-
-def counterModel[R] { prog: => R / Model }: R / State[Int] =
-  try { prog() }
-  with Model {
-    def count() = resume(do getState())
-    def change(n: Int) = {
-      val response = post("http://localhost:3000/change/" ++ show(n))
-      do setState(getCount(response))
-      resume(())
-    }
-    def reset() = {
-      val response = post("http://localhost:3000/reset")
-      do setState(getCount(response))
-      resume(())
-    }
-    def borderOn(node: Node) = {
-      consoleLog("borderOn")
-      node.setStyle("outline", "1px solid #287aa6")
-      resume(())
-    }
-    def borderOff(node: Node) = {
-      node.setStyle("outline", "none")
-      resume(())
-    }
-}
-
-def flatmateModel[R] { prog: => R / FlatmateModel }: R / State[Int] =
-  try { prog() }
-  with FlatmateModel {
-    def addFlatmate(input: Node) = {
-      val name = input.getValue()
-      val response = post("http://localhost:3000/addFlatmate/" ++ name)
-      resume(())
-    }
-    def cancel() = {
-      resume(())
-    }
-  }
-
-record MyApplication[St, Ev](
-  update: Ev => Unit / State[St] at {io, async},
-  view: () => HtmlElement[Ev] / State[St] at {io, async}
-)
-
-def myRun[St](rootElement: HtmlElement[Event], init: St, app: MyApplication[St, Event]) = app match {
-  case MyApplication(update, view) =>
-    val root = rootElement.node
+def run[St](root: Node, init: St, app: Application[St, Event]) = app match {
+  case Application(update, view) =>
+    // rootElement.attributes.foreach { attr => 
+    //   rootElement.node.setAttribute(attr.name, attr.value)
+    //   ()
+    // }
+    
+    // val root = rootElement.node
     val inbox = ref[List[Event]](Nil())
     val state = ref(init)
 
     def send(ev: Event): Unit = inbox.set(Cons(ev, inbox.get))
 
     def render(html: HtmlElement[Event]): Node = {
-      consoleLog("rendering")
       var node = html.node
       node = node.innerHTML(html.text)
       html.children.foreach { child => 
@@ -182,59 +94,121 @@ def myRun[St](rootElement: HtmlElement[Event], init: St, app: MyApplication[St, 
     requestIdleCallback(box loop)
 }
 
-// def view(): HtmlElement[Event] / Model = {
-//   val buttonStyle = """
-//     display: inline-block;
-//     margin: 0 10px;
-//     padding: 10px 20px;
-//     background: #287aa6;
-//     border: none;
-//     border-radius: 5px;
-//     color: white;
-//     cursor: pointer;
-//   """
-//   var button1 = button("-1", [], [Attribute("style", buttonStyle), Attribute("id", "button1")], [OnClick(Change(-1))])
-//   var button2 = button("+1", [], [Attribute("style", buttonStyle), Attribute("id", "button2")], [OnClick(Change(1))])
-//   var button3 = button("Reset", [], [Attribute("style", buttonStyle), Attribute("id", "button3")], [OnClick(Reset())])
-//   button1 = button1.addHandlers([OnMouseEnter(BorderOn(button1.node)), OnMouseLeave(BorderOff(button1.node))])
-//   button2 = button2.addHandlers([OnMouseEnter(BorderOn(button2.node)), OnMouseLeave(BorderOff(button2.node))])
-//   button3 = button3.addHandlers([OnMouseEnter(BorderOn(button3.node)), OnMouseLeave(BorderOff(button3.node))])
 
-//   div(
-//     "",
-//     [
-//       div("Hello World!",[], [Attribute("style", "color: white;")], []),
-//       div("Current value: " ++ show( do count()), [], [Attribute("style", "color: white;")], []),
-//       div("", [button1, button2, button3], [Attribute("style", "margin-top: 20px;")], [])
-//     ],
-//     [Attribute("style", "text-align: center;")], []
-//   )
-// }
+interface Model {
+  def change(n: Int): Unit
+  def reset(): Unit
+  def count(): Int
+  def borderOn(node: Node): Unit
+  def borderOff(node: Node): Unit
+}
+interface FlatmateModel {
+  def addFlatmate(input: Node): Unit
+  def cancel(): Unit
+}
+interface SettingsModel {
+  def open(): Unit
+  def close(): Unit
+}
 
-def addFlatmateView(): HtmlElement[Event] / FlatmateModel = {
-  val buttonStyle = """
-    display: inline-block;
-    margin: 0 10px;
-    padding: 10px 20px;
-    background: #287aa6;
-    border: none;
-    border-radius: 5px;
-    color: white;
-    cursor: pointer;
-  """
+
+def dispatch(msg: Event) = {
+  msg match {
+    case Change(n) => do change(n)
+    case Reset() => do reset()
+    case BorderOn(node) => do borderOn(node)
+    case BorderOff(node) => do borderOff(node)
+    case _ => ()
+  }
+}
+def dispatchSettings(msg: Event) = {
+  msg match {
+    case OpenSettings() => do open()
+    case CloseSettings() => do close()
+    case _ => ()
+  }
+}
+def dispatchFlatmate(msg: Event) = {
+  msg match {
+    case AddFlatmate(input) => do addFlatmate(input) 
+    case Cancel() => do cancel()
+    case _ => ()
+  }
+}
+
+
+def counterController[R] { prog: => R / Model }: R / State[Int] =
+  try { prog() }
+  with Model {
+    def count() = resume(do getState())
+    def change(n: Int) = {
+      val response = post("/change/" ++ show(n))
+      do setState(getCount(response))
+      resume(())
+    }
+    def reset() = {
+      val response = post("/reset")
+      do setState(getCount(response))
+      resume(())
+    }
+    def borderOn(node: Node) = {
+      consoleLog("borderOn")
+      node.setStyle("outline", "1px solid #287aa6")
+      resume(())
+    }
+    def borderOff(node: Node) = {
+      node.setStyle("outline", "none")
+      resume(())
+    }
+}
+def settingsController[R] { prog: => R / SettingsModel }: R / State[Int] =
+  try { prog() }
+  with SettingsModel {
+    def open() = {
+      val appDiv = getElementById("app")
+
+      appDiv match {
+        case Some(appNode) => run(appNode, 0, Application(
+          box { (ev) =>
+            with flatmateController
+            ev.dispatchFlatmate()
+          },
+          box {
+            with flatmateController
+            viewAddFlatmate()
+          }
+        ))
+        case None() => ()
+      }
+
+      resume(())
+    }
+    def close() = {
+      resume(())
+    }
+}
+def flatmateController[R] { prog: => R / FlatmateModel }: R / State[Int] =
+  try { prog() }
+  with FlatmateModel {
+    def addFlatmate(input: Node) = {
+      val name = input.getValue()
+      val response = post("/addFlatmate/" ++ name)
+      resume(())
+    }
+    def cancel() = {
+      resume(())
+    }
+}
+
+
+
+def viewAddFlatmate(): HtmlElement[Event] / FlatmateModel = {
   var addButton = button("Add flatmate", [], 
-    [Attribute("style", buttonStyle), Attribute("id", "addButton")], [])
+    [Attribute("style", styles("button")), Attribute("id", "addButton")], [])
   val cancelButton = button("Cancel", [], 
-    [Attribute("style", buttonStyle), Attribute("id", "cancelButton")], [])
+    [Attribute("style", styles("button")), Attribute("id", "cancelButton")], [])
 
-  val nameStyle = """
-    display: inline-block;
-    margin: 0 10px;
-    padding: 10px 20px;
-    border: none;
-    border-radius: 5px;
-  """
-  val nameInput = input("", [], [Attribute("id", "nameInput"), Attribute("style", nameStyle), Attribute("type", "text")], [])
+  val nameInput = input("", [], [Attribute("id", "nameInput"), Attribute("style", styles("nameInput")), Attribute("type", "text")], [])
   addButton = addButton.addHandlers([OnClick(AddFlatmate(nameInput.node))])
 
   div(
@@ -243,53 +217,54 @@ def addFlatmateView(): HtmlElement[Event] / FlatmateModel = {
       nameInput,
       div("", [addButton, cancelButton], [Attribute("style", "margin-top: 20px;")], [])
     ],
-    [Attribute("style", "text-align: center;")], []
+    [Attribute("style", styles("addFlatmate"))], []
   )
 }
+def viewTitleBar(): HtmlElement[Event] / SettingsModel = {
+  val title = div("WG-Manager", [], [Attribute("style", styles("title"))], [])
+  val settingsButton = button("Settings", [], [Attribute("style", styles("settingsButton"))], [OnClick(OpenSettings())])
+
+  val titleBar = div("", 
+    [title, settingsButton], 
+    [Attribute("style", styles("titleBar"))], 
+    [])
+  titleBar
+}
+// def viewSettings(): HtmlElement[Event] / SettingsModel = {
+  
+// }
+
 
 
 def main() = {
-  // Get initial state from server
-  val response = fetch("http://localhost:3000/count")
-  consoleLog(response)
-  val initialCount = getCount(response)
+  // Download the sql.js library
+  addScriptToBody("https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/sql-wasm.js")
 
-  documentBody.setAttribute("style", "background: black; font-family: sans-serif;")
-  val appStyle = """
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: white;
-  """
-  val attributesList = [Attribute("id", "app"), Attribute("style", appStyle)]
-  val appDiv = getElementById("app").getOrElse { 
-    val newDiv = createElement("div")
-    attributesList.foreach{ attr => 
-      newDiv.setAttribute(attr.name, attr.value) 
-      ()
+  // request the database file 
+  val database = fetchDatabase("/database")
+  val flatmates = database.getFlatmates()
+  flatmates.foreach { flatmate =>
+    flatmate.foreach { name =>
+      consoleLog(name)
     }
+  }
+  
+  documentBody.setAttribute("style", styles("body"))
+  val appDiv = getElementById("app").getOrElse { 
+    val newDiv = createElement("div").setAttribute("id", "app")
     documentBody.appendChild(newDiv)
   }
-  val appElement = HtmlElement(appDiv, "div", "", None(), [], attributesList, [])
+  appDiv.setAttribute("style", styles("app"))
 
-  // myRun(appElement, initialCount, MyApplication(
-  //   box { (ev) =>
-  //     with counterModel
-  //     ev.dispatch()
-  //   },
-  //   box {
-  //     with counterModel
-  //     // view()
-  //     // addFlatmateView()
-  //   }))
-  myRun(appElement, initialCount, MyApplication(
+  run(appDiv, 0, Application(
     box { (ev) =>
-      with flatmateModel
-      ev.dispatchFlatmate()
+      with settingsController
+      ev.dispatchSettings()
     },
     box {
-      with flatmateModel
-      addFlatmateView()
-    }))
+      with settingsController
+      consoleLog("rendering title bar")
+      viewTitleBar()
+    }
+  ))
 }

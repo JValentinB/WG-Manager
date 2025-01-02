@@ -15,8 +15,8 @@ extern type Response
 extern io def createServer(handler: (Request, Response) => Unit at {io, global, async}): Server =
   jsNode "require('http').createServer((req, res) => $effekt.runToplevel((ks, k) => ${handler}(req, res, ks, k)))"
 
-extern io def listen(server: Server, port: Int): Unit =
-  jsNode "${server}.listen(${port})"
+extern io def listen(server: Server, port: Int, host: String): Unit =
+  jsNode "${server}.listen(${port}, ${host})"
 
 extern pure def getUrl(req: Request): String =
   jsNode "${req}.url"
@@ -29,6 +29,9 @@ extern io def writeHead(res: Response, status: Int, contentType: String): Unit =
 
 extern io def end(res: Response, content: String): Unit =
   jsNode "${res}.end(${content})"
+
+extern io def endForDatabaseRequest(res: Response, content: Database): Unit =
+  jsNode "${res}.end(Buffer.from(${content}.export()));"
 
 
 
@@ -58,9 +61,17 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
       writeHead(res, 200, "application/json")
       end(res, """{"count":""" ++ show(counter.get()) ++ "}")
     }
+    case ("GET", "database") => {
+      with on[IOError].panic;
+      // val content = readFile("./data.sqlite")
+      val content = openDatabase("./data.sqlite")
+      writeHead(res, 200, "application/octet-stream")
+      endForDatabaseRequest(res, content)
+    }
     case ("GET", file) => {
       with on[IOError].panic;
       val content = readFile("./out/" ++ file)
+
       if (file.endsWith(".html")) {
         writeHead(res, 200, "text/html")
       } else if (file.endsWith(".js")) {
@@ -69,6 +80,8 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
         writeHead(res, 200, "text/css")
       } else if (file.endsWith(".ico")) {
         writeHead(res, 200, "image/x-icon")
+      } else {
+        writeHead(res, 200, "text/plain")
       }
       end(res, content)
     }
@@ -103,6 +116,6 @@ def main() = {
 
 
   val server = createServer(box { (req, res) => handleRequest(counter, db, databasePath, req, res) })
-  listen(server, 3000)
+  listen(server, 3000, "0.0.0.0")
   println("Server running at http://localhost:3000")
 }
