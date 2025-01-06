@@ -1,9 +1,6 @@
 // From Exercise 5
 module dom
 
-import test
-import src/database
-
 import option
 
 /// Represents a DOM node.
@@ -44,6 +41,9 @@ extern io def innerHTML(node: Node, contents: String): Node =
 
 extern io def getValue(node: Node): String =
   jsWeb "${node}.value"
+
+extern io def getStyleValue(node: Node, key: String): String =
+  jsWeb "${node}.style[${key}]"
   
 def clear(node: Node) = node.innerHTML("")
 

@@ -5,7 +5,8 @@ import array
 import io/filesystem
 import option
 
-// import src/utils/dom
+import src/database/data
+
 
 
 // --------------------------------------------------------------------------------
@@ -18,7 +19,7 @@ import option
 //   - schedule (how often it should be done)
 //   - last time it was done
 //   - assigned flatmates
-//   - flatmates next in turn
+//   - flatmate next in turn
 // - a common consumable
 //   - name
 //   - description
@@ -71,6 +72,7 @@ extern async def createTable(db: Database, query: String): Unit =
 
 extern async def insertData(db: Database, query: String, params: Array[String]): Unit =
   jsWeb """$effekt.capture(async (callback) => {
+    console.log(${params});
     const stmt = ${db}.prepare(${query});
     stmt.run(${params});
     callback();
@@ -129,7 +131,7 @@ def createConsumableTable(db: Database): Unit = {
       id INTEGER PRIMARY KEY,
       name TEXT,
       description TEXT,
-      urgency INTEGER,
+      urgency TEXT,
       assigned_flatmates TEXT
     )
   """
@@ -141,34 +143,62 @@ def insertFlatmate(db: Database, name: String): Unit = {
   val query = "INSERT INTO flatmates (name) VALUES (?)"
   db.insertData(query, [name].fromList())
 }
-def insertTask(db: Database, list: List[String]): Unit = {
+def insertTask(db: Database, task: Task): Unit = {
   // List has to contain: name, description, schedule, last_done, assigned_flatmates, flatmates_next_in_turn
   val query = """
-    INSERT INTO tasks (name, description, schedule, last_done, assigned_flatmates, flatmates_next_in_turn) VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO tasks (name, description, schedule, last_done, assigned_flatmates, flatmate_next_in_turn) VALUES (?, ?, ?, ?, ?, ?)
   """
-  db.insertData(query, list.fromList())
+  db.insertData(query, task.toListOfStrings().fromList())
 }
-def insertConsumable(db: Database, list: List[String]): Unit = {
+def insertConsumable(db: Database, consumable: Consumable): Unit = {
   // List has to contain: name, description, urgency, assigned_flatmates
   val query = """
-    INSERT INTO consumables (name, description, urgency, assigned_flatmates) VALUES (?, ?, ?, ?)
+    INSERT INTO consumables (name, description, urgency, assigned_flatmates, flatmate_bought_count) VALUES (?, ?, ?, ?)
   """
-  db.insertData(query, list.fromList())
+  db.insertData(query, consumable.toListOfStrings().fromList())
 }
 
 // Functions to retrieve whole tables
-def getFlatmates(db: Database): Array[Array[String]] = {
+def getFlatmates(db: Database): List[Flatmate] = {
   val query = "SELECT name FROM flatmates"
-  db.readData(query)
+  val arr = db.readData(query)
+
+  var flatmates = empty[Flatmate]()
+  arr.foreach { row =>
+    row.foreach { name =>
+      flatmates = flatmates.append([Flatmate(name)])
+      ()
+    }
+  }
+  flatmates
 }
-def getTasks(db: Database): Array[Array[String]] = {
-  val query = "SELECT * FROM tasks"
-  db.readData(query)
+def getTasks(db: Database): List[Task] = {
+  val query = "SELECT name, description, schedule, last_done, assigned_flatmates, flatmate_next_in_turn FROM tasks"
+  val arr = db.readData(query)
+
+  var tasks = empty[Task]()
+  arr.foreach { row =>
+    val task = toTask(row.toList())
+    tasks = tasks.append([task])
+    ()
+  }
+  tasks
 }
-def getConsumables(db: Database): Array[Array[String]] = {
-  val query = "SELECT * FROM consumables"
-  db.readData(query)
+def getConsumables(db: Database): List[Consumable] = {
+  val query = "SELECT name, description, urgency, assigned_flatmates, flatmate_bought_count FROM consumables"
+  val arr = db.readData(query)
+
+  var consumables = empty[Consumable]()
+  arr.foreach { row =>
+    consumables = consumables.append([toConsumable(row.toList())])
+    ()
+  }
+  consumables
 }
+
+// def getManagerData(db: Database): ManagerData = {
+//   ManagerData(getFlatmates(db), getTasks(db), getConsumables(db))
+// }
 
 // Functions to retrieve single entries
 def getFlatmateInfo(db: Database, name: String): Array[String] = {

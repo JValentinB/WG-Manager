@@ -1,0 +1,117 @@
+module data
+
+import ref
+import array
+import io/filesystem
+import option
+
+record Flatmate (
+  name: String
+)
+
+record Task (
+  name: String,
+  description: String,
+  schedule: Int,
+  lastTimeDone: Int,
+  assignedFlatmates: List[String], // List of flatmate names
+  flatmateNextInTurn: String
+)
+
+record Consumable (
+  name: String,
+  description: String,
+  urgency: Int,
+  assignedFlatmates: List[String],
+  flatmateBoughtCount: List[(String, Int)]
+)
+
+// record ManagerData (
+//   flatmates: List[Flatmate],
+//   tasks: List[Task],
+//   consumables: List[Consumable]
+// )
+
+def toListOfStrings(task: Task): List[String] = {
+  var flatmates = ""
+  task.assignedFlatmates.foreach { flatmate =>
+    flatmates = flatmates ++ flatmate ++ ","
+  }
+  
+  [task.name, task.description, show(task.schedule), show(task.lastTimeDone), flatmates, task.flatmateNextInTurn]
+}
+
+def toListOfStrings(consumable: Consumable): List[String] = {
+  var flatmates = ""
+  consumable.assignedFlatmates.foreach { flatmate =>
+    flatmates = flatmates ++ flatmate ++ ","
+  }
+
+  var flatmateBoughtCount = ""
+  consumable.flatmateBoughtCount.foreach { case (flatmate, count) =>
+    flatmateBoughtCount = flatmateBoughtCount ++ flatmate ++ ":" ++ show(count) ++ ","
+  }
+  
+  [consumable.name, consumable.description, show(consumable.urgency), flatmates]
+}
+
+def toTask(list: List[String]): Task = {
+  with on[OutOfBounds].default { println("Index out of bounds"); Task("OutOfBounds", "", 0, 0, [], "") };
+  with on[WrongFormat].default { println("Wrong Format"); Task("WrongFormat", "", 0, 0, [], "") };
+
+  val flatmates = list.get(4).split(",")
+  Task(list.get(0), list.get(1), list.get(2).toInt, list.get(3).toInt, flatmates, list.get(5))
+}
+
+def toConsumable(list: List[String]): Consumable = {
+  with on[OutOfBounds].default { println("Index out of bounds"); Consumable("OutOfBounds", "", 0, [], []) };
+  with on[WrongFormat].default { println("Wrong Format"); Consumable("WrongFormat", "", 0, [], []) };
+
+  val flatmates = list.get(3).split(",")
+  val flatmateBoughtCount = list.get(4).split(",").map { entry =>
+    val split = entry.split(":")
+    (split.get(0), split.get(1).toInt)
+  }
+  Consumable(list.get(0), list.get(1), list.get(2).toInt, flatmates, flatmateBoughtCount)
+}
+
+def printFlatmate(flatmate: Flatmate): Unit = {
+  val string = "Flatmate: " ++ flatmate.name ++ "\n"
+  println(string)
+}
+
+def printTask(task: Task): Unit = {
+  var flatmates = ""
+  task.assignedFlatmates.foreach { flatmate =>
+    flatmates = flatmates ++ flatmate ++ ", "
+  }
+
+  val string = "Task: " ++ task.name ++ "\n" ++
+  "Description: " ++ task.description ++ "\n" ++
+  "Schedule: " ++ show(task.schedule) ++ "\n" ++
+  "Last time done: " ++ show(task.lastTimeDone) ++ "\n" ++
+  "Assigned flatmates: " ++ flatmates ++ "\n" ++
+  "Flatmate next in turn: " ++ task.flatmateNextInTurn ++ "\n";
+
+  println(string)
+}
+
+def printConsumable(consumable: Consumable): Unit = {
+  var flatmates = ""
+  consumable.assignedFlatmates.foreach { flatmate =>
+    flatmates = flatmates ++ flatmate ++ ", "
+  }
+
+  var flatmateBoughtCount = ""
+  consumable.flatmateBoughtCount.foreach { case (flatmate, count) =>
+    flatmateBoughtCount = flatmateBoughtCount ++ flatmate ++ ": " ++ show(count) ++ ", "
+  }
+
+  val string = "Consumable: " ++ consumable.name ++ "\n" ++
+  "Description: " ++ consumable.description ++ "\n" ++
+  "Urgency: " ++ show(consumable.urgency) ++ "\n" ++
+  "Assigned flatmates: " ++ flatmates ++ "\n" ++
+  "Flatmate bought count: " ++ flatmateBoughtCount ++ "\n";
+
+  println(string)
+}

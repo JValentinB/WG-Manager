@@ -7,12 +7,6 @@ import ref
 import string
 import test
 
-// import src/utils/test
-
-// type Html[St, Ev] {
-//   Element(tag: String, handler: List[EventHandler[St, Ev]], children: List[Html[Ev]], attributes: List[Attribute]);
-//   Text(content: String);
-// }
 record Application[St, Ev](
   update: Ev => Unit / State[St] at {io, global, async},
   view: () => HtmlElement[St, Ev] / State[St] at {io, global, async}
@@ -22,10 +16,10 @@ record HtmlElement[St, Ev] (
   node: Node,
   tag: String,
   text: String, 
+  app: Option[Application[St, Ev]],
   children: List[HtmlElement[St, Ev]], 
   attributes: List[Attribute],
-  handlers: List[EventHandler[Ev]],
-  app: Application[St, Ev]
+  handlers: List[EventHandler[Ev]]
 )
 
 record Attribute (
@@ -42,14 +36,14 @@ type EventHandler[Ev] {
 
 // effect addingChild[St, Ev](child: HtmlElement[St, Ev]): Unit
 
-def button[St, Ev](text: String, children: List[HtmlElement[St, Ev]], attributes: List[Attribute], handlers: List[EventHandler[Ev]], app: Application[St, Ev]) =
-  HtmlElement(createElement("button"), "button", text, children, attributes, handlers, app)
+def button[St, Ev](text: String, children: List[HtmlElement[St, Ev]], attributes: List[Attribute], handlers: List[EventHandler[Ev]], app: Option[Application[St, Ev]]) =
+  HtmlElement(createElement("button"), "button", text, app, children, attributes, handlers)
 
-def div[St, Ev](text: String, children: List[HtmlElement[St, Ev]], attributes: List[Attribute], handlers: List[EventHandler[Ev]], app: Application[St, Ev]) =
-  HtmlElement(createElement("div"), "div", text, children, attributes, handlers, app)
+def div[St, Ev](text: String, children: List[HtmlElement[St, Ev]], attributes: List[Attribute], handlers: List[EventHandler[Ev]], app: Option[Application[St, Ev]]) =
+  HtmlElement(createElement("div"), "div", text, app, children, attributes, handlers)
 
-def input[St, Ev](text: String, children: List[HtmlElement[St, Ev]], attributes: List[Attribute], handlers: List[EventHandler[Ev]], app: Application[St, Ev]) =
-  HtmlElement(createElement("input"), "input", text, children, attributes, handlers, app)
+def input[St, Ev](text: String, children: List[HtmlElement[St, Ev]], attributes: List[Attribute], handlers: List[EventHandler[Ev]], app: Option[Application[St, Ev]]) =
+  HtmlElement(createElement("input"), "input", text, app, children, attributes, handlers)
 
 
 
@@ -60,8 +54,19 @@ def appendChild[St, Ev](parent: HtmlElement[St, Ev], child: HtmlElement[St, Ev])
 
 def addHandlers[St, Ev](element: HtmlElement[St, Ev], handlers: List[EventHandler[Ev]]): HtmlElement[St, Ev] = {
   val newHandlers = element.handlers.append(handlers)
-  val newElement = HtmlElement(element.node, element.tag, element.text, element.children, element.attributes, newHandlers, element.app)
+  val newElement = HtmlElement(element.node, element.tag, element.text, element.app, element.children, element.attributes, newHandlers)
   newElement
+}
+
+def toggleDisplay(node: Node): Unit = {
+  val currentDisplay = node.getStyleValue("display")
+  if (currentDisplay == "none") {
+    node.setStyle("display", "block")
+    ()
+  } else {
+    node.setStyle("display", "none")
+    ()
+  }
 }
 
 
@@ -71,7 +76,7 @@ interface State[St] {
   def setState(s: St): Unit
 }
 
-/// Handle the `State` effect using a `Ref` (global mutable reference)
+// Handle the `State` effect using a `Ref` (global mutable reference)
 def statefully[R, St](r: Ref[St]) { prog: () => R / State[St] }: R =
   try { prog() } with State[St] {
     def getState() = resume(r.get())

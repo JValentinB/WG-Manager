@@ -5,7 +5,7 @@ import array
 import io/filesystem
 import option
 
-// import src/utils/dom
+import src/database/data
 
 
 // --------------------------------------------------------------------------------
@@ -109,7 +109,6 @@ def createFlatmateTable(db: Database): Unit = {
   """
   db.createTable(query)
 }
-
 def createTaskTable(db: Database): Unit = {
   val query = """
     CREATE TABLE IF NOT EXISTS tasks (
@@ -124,15 +123,15 @@ def createTaskTable(db: Database): Unit = {
   """
   db.createTable(query)
 }
-
 def createConsumableTable(db: Database): Unit = {
   val query = """
     CREATE TABLE IF NOT EXISTS consumables (
       id INTEGER PRIMARY KEY,
       name TEXT,
       description TEXT,
-      urgency INTEGER,
-      assigned_flatmates TEXT
+      urgency TEXT,
+      assigned_flatmates TEXT, 
+      flatmate_bought_count TEXT
     )
   """
   db.createTable(query)
@@ -143,33 +142,57 @@ def insertFlatmate(db: Database, name: String): Unit = {
   val query = "INSERT INTO flatmates (name) VALUES (?)"
   db.insertData(query, [name].fromList())
 }
-def insertTask(db: Database, list: List[String]): Unit = {
+def insertTask(db: Database, task: Task): Unit = {
   // List has to contain: name, description, schedule, last_done, assigned_flatmates, flatmates_next_in_turn
   val query = """
-    INSERT INTO tasks (name, description, schedule, last_done, assigned_flatmates, flatmates_next_in_turn) VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO tasks (name, description, schedule, last_done, assigned_flatmates, flatmate_next_in_turn) VALUES (?, ?, ?, ?, ?, ?)
   """
-  db.insertData(query, list.fromList())
+  db.insertData(query, task.toListOfStrings().fromList())
 }
-def insertConsumable(db: Database, list: List[String]): Unit = {
+def insertConsumable(db: Database, consumable: Consumable): Unit = {
   // List has to contain: name, description, urgency, assigned_flatmates
   val query = """
-    INSERT INTO consumables (name, description, urgency, assigned_flatmates) VALUES (?, ?, ?, ?)
+    INSERT INTO consumables (name, description, urgency, assigned_flatmates, flatmate_bought_count) VALUES (?, ?, ?, ?)
   """
-  db.insertData(query, list.fromList())
+  db.insertData(query, consumable.toListOfStrings().fromList())
 }
 
 // Functions to retrieve whole tables
-def getFlatmates(db: Database): Array[Array[String]] = {
+def getFlatmates(db: Database): List[Flatmate] = {
   val query = "SELECT name FROM flatmates"
-  db.readData(query)
+  val arr = db.readData(query)
+
+  var flatmates = empty[Flatmate]()
+  arr.foreach { row =>
+    row.foreach { name =>
+      flatmates = flatmates.append([Flatmate(name)])
+      ()
+    }
+  }
+  flatmates
 }
-def getTasks(db: Database): Array[Array[String]] = {
-  val query = "SELECT * FROM tasks"
-  db.readData(query)
+def getTasks(db: Database): List[Task] = {
+  val query = "SELECT name, description, schedule, last_done, assigned_flatmates, flatmate_next_in_turn FROM tasks"
+  val arr = db.readData(query)
+
+  var tasks = empty[Task]()
+  arr.foreach { row =>
+    val task = toTask(row.toList())
+    tasks = tasks.append([task])
+    ()
+  }
+  tasks
 }
-def getConsumables(db: Database): Array[Array[String]] = {
-  val query = "SELECT * FROM consumables"
-  db.readData(query)
+def getConsumables(db: Database): List[Consumable] = {
+  val query = "SELECT name, description, urgency, assigned_flatmates, flatmate_bought_count FROM consumables"
+  val arr = db.readData(query)
+
+  var consumables = empty[Consumable]()
+  arr.foreach { row =>
+    consumables = consumables.append([toConsumable(row.toList())])
+    ()
+  }
+  consumables
 }
 
 // Functions to retrieve single entries
@@ -207,29 +230,25 @@ def openWGManagerDatabase(databasePath: String): Database = {
 
 def main() = {
   val databasePath = "./data.sqlite"
+  val db = openWGManagerDatabase(databasePath)
 
-  val dbExists = databaseFileExists(databasePath)
-  val db = if (dbExists) {
-    println("Database file exists, opening...")
-    openDatabase(databasePath)
-  } else {
-    println("Database file does not exist, creating...")
-    val initDb = initDatabase()
-    initDb.createFlatmateTable()
-    initDb.createTaskTable()
-    initDb.createConsumableTable()
+  val alice = Flatmate("Alice")
+  val bob = Flatmate("Bob")
+  val task = Task("Clean the kitchen", "Clean the kitchen", 7, 0, [alice.name, bob.name], bob.name)
 
-    saveDatabase(initDb, databasePath)
-    initDb
-  }
-  // db.insertFlatmate("Robert")
-  // db.insertTask(["Task 1", "Description 1", "Schedule 1", "Last done 1", "Assigned flatmates 1", "flatmates next in turn 1"])
-  // db.saveDatabase(databasePath)
+  db.insertTask(task)
+  
+  db.insertFlatmate("Valentin")
+  db.insertFlatmate("Ellen")
+  db.insertFlatmate("Robert")
 
-  val flatmates = getFlatmates(db)
-  flatmates.foreach { flatmate =>
-    flatmate.foreach { name =>
-      println(name)
-    }
-  }
+  db.saveDatabase(databasePath)
+  // println("Database saved")
+  
+  // val tasks = db.getTasks()
+  // tasks.foreach { task =>
+  //   printTask(task)
+  // }
+  
+  ()
 }

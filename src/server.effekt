@@ -5,7 +5,7 @@ import io
 import io/filesystem
 import io/error
 
-import src/database
+import src/database/database
 
 // Node.js HTTP server FFI definitions
 extern type Server
