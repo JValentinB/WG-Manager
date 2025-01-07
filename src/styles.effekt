@@ -36,12 +36,17 @@ def styles(id: String): String = {
       color: white;
       cursor: pointer;
     """
-    case "nameInput" => """
-      display: inline-block;
-      margin: 0 10px;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 5px;
+    case "addButton" => """
+      width: 100%;
+      height: 50px;
+      background-color: transparent;
+      display: block;
+      justify-content: center;
+      align-items: center;
+      border: 3px dashed #ccc;
+      font-size: 30px;
+      color: #ccc;
+      cursor: pointer;
     """
     case "wrapper" => """
       display: block; 
@@ -49,40 +54,61 @@ def styles(id: String): String = {
       width: 100%;
       height: 100%;
     """
+    case "groupButton" => """
+      flex-grow: 1;
+      height: 50px;
+      background-color: transparent;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border: 1px solid #ccc;
+      font-size: 30px;
+      color: #ccc;
+      cursor: pointer;
+    """
+    case "buttonGroup" => """
+      display: flex;
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+    """
     case _ => ""
   }
 }
 
-def stylesTitleBar(id: String): String = {
+def stylesNavBar(id: String): String = {
   id match {
-    case "titleBar" => """
+    case "navBar" => """
       display: block; 
       width: 100%;
-      height: 50px;
+      height: 60px;
       background: rgb(16, 24, 34);
       color: white;
       border-radius: 5px;
     """
-    case "title" => """
-      display: inline-block;
-      position: relative; 
-      left: 20px; 
-      top: 50%;
-      transform: translateY(-50%);
-
-      font-size: 1.5rem;
-      margin: 0;
-    """
-    case "settingsButton" => """
-      position: absolute;
-      right: 20px;
-      top: 50%;
-      transform: translateY(-50%); 
-
-      background: #287aa6;
+    case "navButton" => """
+      position: relative;
+      left: 0px;
+      width: 33.33%;
+      height: 100%;
+      background: transparent;
       border: none;
-      border-radius: 5px;
-      padding: 5px 10px;
+      padding: 0;
+      color: white;
+      cursor: pointer;
+      font-size: 1rem;
+    """
+    case "navButtonActive" => """
+      position: relative;
+      left: 0px;
+      width: 33.33%;
+      height: 100%;
+      background: transparent;
+      border: none;
+      border-top: 3px solid white;
+      padding: 0;
       color: white;
       cursor: pointer;
       font-size: 1rem;
@@ -103,23 +129,11 @@ def stylesAddFlatmate(id: String): String = {
       align-items: center;
       border-radius: 5px;
       font-size: 25px;
-    """
-    case "addFlatmateButton" => """
-      width: 125px;
-      height: 150px;
-      background-color: transparent;
-      margin: 10px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      border: 3px dashed #ccc;
-      border-radius: 5px;
-      font-size: 100px;
-      color: #ccc;
+      flex-shrink: 0;
     """
     case "flatmateContainer" => """
       display: flex;
-      flex-direction: row;
+      flex-direction: column;
       justify-content: space-between;
       align-items: center;
       width: 100%;
@@ -128,20 +142,44 @@ def stylesAddFlatmate(id: String): String = {
     case "cardsContainer" => """
       display: flex;
       flex-direction: row;
-      justify-content: start; 
-      gap: 20px;
+      flex-wrap: wrap;
+      justify-content: center; 
       align-items: center;
-      width: 75%;
+      gap: 20px;
+      width: 100%;
       height: 100%;
       overflow-y: hidden;
       overflow-x: auto;
     """
-    case "buttonContainer" => """
+    case "addContainer" => """
       display: flex;
       justify-content: center;
       align-items: center;
-      width: 25%;
+      width: 100%;
       height: 100%;
+    """
+    case "addMenu" => """
+      display: none;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+    """
+    case "textInput" => """
+      width: 90%;
+      height: 50px;
+      padding: 0;
+      padding-left: 5%;
+      padding-right: 5%;
+      background-color: white;
+      display: block;
+      justify-content: center;
+      align-items: center;
+      border: None;
+      border-top: 3px solid #888;
+      border-bottom: 3px solid #888;
+      font-size: 30px;
+      color: black;
     """
     case _ => ""
   }

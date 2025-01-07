@@ -68,6 +68,32 @@ def toggleDisplay(node: Node): Unit = {
     ()
   }
 }
+def toggleDisplay(node: Node, show: Bool): Unit = {
+  if (show) {
+    node.setStyle("display", "block")
+    ()
+  } else {
+    node.setStyle("display", "none")
+    ()
+  }
+}
+
+def toggleAddMenu(section: String, show: Bool) = {
+  val addFlatmate = getElementById(section ++ "AddMenu")
+  addFlatmate match {
+    case Some(node) => {
+      node.toggleDisplay(show)
+    }
+    case None() => ()
+  }
+  val addButton = getElementById(section ++ "AddButton")
+  addButton match {
+    case Some(node) => {
+      node.toggleDisplay(show == false)
+    }
+    case None() => ()
+  }
+}
 
 
 
