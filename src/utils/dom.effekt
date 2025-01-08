@@ -79,6 +79,20 @@ extern async def post(endpoint: String): String =
       .catch(error => console.error(error))
   )"""
 
+extern async def post(endpoint: String, data: String): String =
+  jsWeb """$effekt.capture(callback => 
+    fetch(window.location.origin + ${endpoint}, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: ${data}
+    })
+      .then(r => r.json())
+      .then(result => callback(result))
+      .catch(error => console.error(error))
+  )"""
+
 extern async def addScriptToBody(src: String): Unit =
   jsWeb """$effekt.capture(callback => {
     const script = document.createElement('script');

@@ -46,7 +46,19 @@ def runApp(): Unit = {
   var tasks in global = database.getTasks()
   var consumables in global = database.getConsumables()
 
-  // var sectionShown in global = "task" // tasks, consumables, flatmates
+  def updateDatabase(): Unit = {
+    database = fetchDatabase("/database")
+  }
+
+  def updateDataCategoryFromDatabase(category: String): Unit = {
+    category match {
+      case "flatmates" => flatmates = database.getFlatmates()
+      case "tasks" => tasks = database.getTasks()
+      case "consumables" => consumables = database.getConsumables()
+      case _ => ()
+    }
+  }
+
 
 
   def run[St](root: Node, init: St, app: Application[St, Event]): Unit = app match {
@@ -113,6 +125,10 @@ def runApp(): Unit = {
                 render()
               }
               case Reset() => {
+                statefully(state) { update(ev) }
+                render()
+              }
+              case AddFlatmate(input) => {
                 statefully(state) { update(ev) }
                 render()
               }
@@ -211,7 +227,9 @@ def runApp(): Unit = {
       def addFlatmate(input: Node) = {
         val name = input.getValue()
         if (name != "") {
-          val response = post("/addFlatmate/" ++ name)
+          val response = post("/addFlatmate", "{\"name\":\"" ++ name ++ "\"}")
+          updateDatabase()
+          updateDataCategoryFromDatabase("flatmates")
           ()
         }
         resume(())
@@ -318,19 +336,22 @@ def runApp(): Unit = {
     div("", [container], [Attribute("id", "consumablesSettings"), Attribute("style", "display: none")], [], None())
   }
   def viewFlatmates(): HtmlElement[Int, Event] / { Model, DataModel } = { 
-    var flatmateCards = empty[HtmlElement[Int, Event]]()
-    flatmates.foreach { flatmate =>
+
+    def menu(): HtmlElement[Int, Event] / { Model, DataModel } = {
+      var cards = empty[HtmlElement[Int, Event]]()
+      flatmates.foreach { flatmate =>
         val flatmateCard = div(flatmate.name, [], [Attribute("style", stylesAddFlatmate("flatmateCard"))], [], None())
-        flatmateCards = flatmateCards.append([flatmateCard])
+        cards = cards.append([flatmateCard])
         ()
+      }
+      val cardsContainer = div("", cards, [Attribute("style", stylesAddFlatmate("cardsContainer"))], [], None())
+
+      val addButton = viewAddButton("flatmates")
+      val addFlatmateMenu = viewAddFlatmate()
+      val addContainer = div("", [addButton, addFlatmateMenu], [Attribute("style", stylesAddFlatmate("addContainer"))], [], None())
+
+      div("", [addContainer, cardsContainer], [Attribute("style", stylesAddFlatmate("flatmateContainer"))], [], None())
     }
-    val cardsContainer = div("", flatmateCards, [Attribute("style", stylesAddFlatmate("cardsContainer"))], [], None())
-
-    val addButton = viewAddButton("flatmates")
-    val addFlatmateMenu = viewAddFlatmate()
-    val addContainer = div("", [addButton, addFlatmateMenu], [Attribute("style", stylesAddFlatmate("addContainer"))], [], None())
-
-    val container = div("", [addContainer, cardsContainer], [Attribute("style", stylesAddFlatmate("flatmateContainer"))], [], None())
     val flatmateApp = Application[Int, Event](
       box { (ev) => 
         with mainController
@@ -341,10 +362,10 @@ def runApp(): Unit = {
       box { 
         with mainController
         with dataController
-        container
+        menu()
       }
     )
-    div("", [container], [Attribute("id", "flatmatesSettings"), Attribute("style", "display: none")], [], Some(flatmateApp))
+    div("", [], [Attribute("id", "flatmatesSettings"), Attribute("style", "display: none")], [], Some(flatmateApp))
   }
 
 

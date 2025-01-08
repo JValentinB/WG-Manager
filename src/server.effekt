@@ -24,6 +24,25 @@ extern pure def getUrl(req: Request): String =
 extern pure def getMethod(req: Request): String =
   jsNode "${req}.method"
 
+extern io def getData(req: Request): String =
+  jsNode """console.log(${req});
+    ${req}.body
+  """
+
+extern async def getBody(req: Request): String =
+  jsNode """$effekt.capture(callback => {
+    let body = '';
+    ${req}.on('data', chunk => {
+      body += chunk.toString();
+    });
+    ${req}.on('end', () => {
+      callback(body);
+    });
+  })"""
+
+extern def getJsonValue(json: String, key: String): String =
+  jsNode """JSON.parse(${json})[${key}]"""
+
 extern io def writeHead(res: Response, status: Int, contentType: String): Unit =
   jsNode "${res}.writeHead(${status}, { 'Content-Type': ${contentType}, 'Access-Control-Allow-Origin': '*' })"
 
@@ -37,18 +56,20 @@ extern io def endForDatabaseRequest(res: Response, content: Database): Unit =
 
 // Handling network requests
 def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request, res: Response): Unit = {
-  val url = getUrl(req).substring(1).split("/")
-  val method = getMethod(req)
+  val url = req.getUrl.substring(1).split("/")
+  val method = req.getMethod()
+  val body = req.getBody()
   
   val path = url match {
     case Cons(path, _) => path
     case _ => ""
   }
-  val arg = url match {
-    case Cons(_, Cons(arg, _)) => arg
-    case _ => ""
-  }
-  println(method ++ " " ++ path ++ " " ++ show(arg))
+  // val arg = url match {
+  //   case Cons(_, Cons(arg, _)) => arg
+  //   case _ => ""
+  // }
+  // println(method ++ " " ++ path ++ " " ++ show(arg))
+  println(method ++ " " ++ path)
 
   (method, path) match {
     case ("GET", "") => {
@@ -85,22 +106,28 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
       }
       end(res, content)
     }
-    case ("POST", "change") => {
-      val n = arg.unsafeToInt()
-      counter.set(counter.get() + n)
-      writeHead(res, 200, "application/json")
-      end(res, """{"count":""" ++ show(counter.get()) ++ "}")
-    }
-    case ("POST", "reset") => {
-      counter.set(0)
-      writeHead(res, 200, "application/json")
-      end(res, """{"count":""" ++ show(counter.get()) ++ "}")
-    }
+    // case ("POST", "change") => {
+    //   val n = arg.unsafeToInt()
+    //   counter.set(counter.get() + n)
+    //   writeHead(res, 200, "application/json")
+    //   end(res, """{"count":""" ++ show(counter.get()) ++ "}")
+    // }
+    // case ("POST", "reset") => {
+    //   counter.set(0)
+    //   writeHead(res, 200, "application/json")
+    //   end(res, """{"count":""" ++ show(counter.get()) ++ "}")
+    // }
     case ("POST", "addFlatmate") => {
-      db.insertFlatmate(arg)
-      db.saveDatabase(dbPath)
-      writeHead(res, 200, "application/json")
-      end(res, """{"success":true}""")
+      val name = body.getJsonValue("name")
+      if (name != "") {
+        db.insertFlatmate(name)
+        db.saveDatabase(dbPath)
+        writeHead(res, 200, "application/json")
+        end(res, """{"success":true}""")
+      } else {
+        writeHead(res, 400, "application/json")
+        end(res, """{"error":"Name is required"}""")
+      }
     }
     case _ => {
       writeHead(res, 404, "text/plain")
