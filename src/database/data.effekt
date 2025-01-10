@@ -6,7 +6,8 @@ import io/filesystem
 import option
 
 record Flatmate (
-  name: String
+  name: String,
+  color: String
 )
 
 record Task (
@@ -32,6 +33,16 @@ record Consumable (
 //   consumables: List[Consumable]
 // )
 
+def filter[T](list: List[T]) {f: T => Bool}: List[T] = {
+  var result = empty[T]()
+  list.foreach { item =>
+    if (f(item)) {
+      result = result.append([item])
+    }
+  }
+  result
+}
+
 def toListOfStrings(task: Task): List[String] = {
   var flatmates = ""
   task.assignedFlatmates.foreach { flatmate =>
@@ -55,11 +66,17 @@ def toListOfStrings(consumable: Consumable): List[String] = {
   [consumable.name, consumable.description, show(consumable.urgency), flatmates]
 }
 
+def toFlatmate(list: List[String]): Flatmate = {
+  with on[OutOfBounds].default { println("Index out of bounds"); Flatmate("OutOfBounds", "red") };
+  with on[WrongFormat].default { println("Wrong Format"); Flatmate("WrongFormat", "") };
+
+  Flatmate(list.get(0), list.get(1))
+}
 def toTask(list: List[String]): Task = {
   with on[OutOfBounds].default { println("Index out of bounds"); Task("OutOfBounds", "", 0, 0, [], "") };
   with on[WrongFormat].default { println("Wrong Format"); Task("WrongFormat", "", 0, 0, [], "") };
 
-  val flatmates = list.get(4).split(",")
+  val flatmates = list.get(4).split(",").filter { name => name != "" }
   Task(list.get(0), list.get(1), list.get(2).toInt, list.get(3).toInt, flatmates, list.get(5))
 }
 
@@ -67,8 +84,8 @@ def toConsumable(list: List[String]): Consumable = {
   with on[OutOfBounds].default { println("Index out of bounds"); Consumable("OutOfBounds", "", 0, [], []) };
   with on[WrongFormat].default { println("Wrong Format"); Consumable("WrongFormat", "", 0, [], []) };
 
-  val flatmates = list.get(3).split(",")
-  val flatmateBoughtCount = list.get(4).split(",").map { entry =>
+  val flatmates = list.get(3).split(",").filter { name => name != "" }
+  val flatmateBoughtCount = list.get(4).split(",").filter { entry => entry != ""}.map { entry =>
     val split = entry.split(":")
     (split.get(0), split.get(1).toInt)
   }
@@ -114,4 +131,22 @@ def printConsumable(consumable: Consumable): Unit = {
   "Flatmate bought count: " ++ flatmateBoughtCount ++ "\n";
 
   println(string)
+}
+
+
+def colorPalette(id: Int): String = {
+  val x = id.mod(10);
+  x match {
+    case 0 => "#f3722c"
+    case 1 => "#43aa8b"
+    case 2 => "#f9c74f"
+    case 3 => "#f94144"
+    case 4 => "#90be6d"
+    case 5 => "#4d908e"
+    case 6 => "#f9844a"
+    case 7 => "#277da1"
+    case 8 => "#577590"
+    case 9 => "#f8961e"
+    case _ => "black"
+  }
 }

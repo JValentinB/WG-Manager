@@ -28,6 +28,9 @@ import src/database/data
 //     - how many times each flatmate has bought it
 // --------------------------------------------------------------------------------
 
+extern io def consoleLog1[T](msg: T): Unit =
+  jsWeb "console.log(${msg})"
+
 // Sqlite FFI definitions
 extern type Database
 
@@ -93,8 +96,22 @@ extern async def readData(db: Database, query: String): Array[Array[String]] =
 extern async def readDataWithParams(db: Database, query: String, param: String): Array[String] =
   jsWeb """$effekt.capture((callback) => {
     const stmt = ${db}.prepare(${query});
-    stmt.bind(${param});
-    callback(stmt.getAsObject());
+    stmt.bind([${param}]);
+    const rows = [];
+    while (stmt.step()) {
+      const row = stmt.getAsObject();
+      const rowArray = Object.values(row).map(value => value?.toString() || "null");
+      rows.push(rowArray);
+    }
+    callback(rows[0]);
+  })"""
+
+extern async def getTableLength(db: Database, table: String): Int =
+  jsWeb """$effekt.capture((callback) => {
+    const stmt = ${db}.prepare("SELECT COUNT(*) AS count FROM ${table}");
+    stmt.step();
+    const row = stmt.getAsObject();
+    callback(row.count);
   })"""
 
 
@@ -105,11 +122,11 @@ def createFlatmateTable(db: Database): Unit = {
     CREATE TABLE IF NOT EXISTS flatmates (
       id INTEGER PRIMARY KEY,
       name TEXT
+      color TEXT
     )
   """
   db.createTable(query)
 }
-
 def createTaskTable(db: Database): Unit = {
   val query = """
     CREATE TABLE IF NOT EXISTS tasks (
@@ -124,7 +141,6 @@ def createTaskTable(db: Database): Unit = {
   """
   db.createTable(query)
 }
-
 def createConsumableTable(db: Database): Unit = {
   val query = """
     CREATE TABLE IF NOT EXISTS consumables (
@@ -140,8 +156,11 @@ def createConsumableTable(db: Database): Unit = {
 
 
 def insertFlatmate(db: Database, name: String): Unit = {
-  val query = "INSERT INTO flatmates (name) VALUES (?)"
-  db.insertData(query, [name].fromList())
+  val maxId = db.getTableLength("flatmates")
+  val color = colorPalette(maxId + 1)
+
+  val query = "INSERT INTO flatmates (name, color) VALUES (?, ?)"
+  db.insertData(query, [name, color].fromList())
 }
 def insertTask(db: Database, task: Task): Unit = {
   // List has to contain: name, description, schedule, last_done, assigned_flatmates, flatmates_next_in_turn
@@ -160,15 +179,14 @@ def insertConsumable(db: Database, consumable: Consumable): Unit = {
 
 // Functions to retrieve whole tables
 def getFlatmates(db: Database): List[Flatmate] = {
-  val query = "SELECT name FROM flatmates"
+  val query = "SELECT name, color FROM flatmates"
   val arr = db.readData(query)
 
   var flatmates = empty[Flatmate]()
   arr.foreach { row =>
-    row.foreach { name =>
-      flatmates = flatmates.append([Flatmate(name)])
-      ()
-    }
+    val flatmate = toFlatmate(row.toList())
+    flatmates = flatmates.append([flatmate])
+    ()
   }
   flatmates
 }
@@ -196,20 +214,40 @@ def getConsumables(db: Database): List[Consumable] = {
   consumables
 }
 
-// def getManagerData(db: Database): ManagerData = {
-//   ManagerData(getFlatmates(db), getTasks(db), getConsumables(db))
-// }
+def getFlatmateNames(db: Database): List[String] = {
+  val query = "SELECT name FROM flatmates"
+  val arr = db.readData(query)
 
-// Functions to retrieve single entries
-def getFlatmateInfo(db: Database, name: String): Array[String] = {
-  val query = "SELECT * FROM flatmates WHERE name = ?"
-  db.readDataWithParams(query, name)
+  var names = empty[String]()
+  arr.foreach { row =>
+    val list = row.toList()
+    list match {
+      case Cons(name, _) => names = names.append([name])
+      case _ => ()
+    }
+    ()
+  }
+  names
 }
-def getTaskInfo(db: Database, name: String): Array[String] = {
-  val query = "SELECT * FROM tasks WHERE name = ?"
-  db.readDataWithParams(query, name)
+
+
+def getFlatmateByName(db: Database, name: String): Flatmate = {
+  val query = "SELECT name, color FROM flatmates WHERE name = ?"
+  val arr = db.readDataWithParams(query, name)
+  // check if the array is empty
+  if (arr.size() == 0) {
+    Flatmate("Not found", "red")
+  } else {
+    arr.toList().toFlatmate()
+  }
 }
-def getConsumableInfo(db: Database, name: String): Array[String] = {
-  val query = "SELECT * FROM consumables WHERE name = ?"
-  db.readDataWithParams(query, name)
+def getTaskByName(db: Database, name: String): Task = {
+  val query = "SELECT name, description, schedule, last_done, assigned_flatmates, flatmate_next_in_turn FROM tasks WHERE name = ?"
+  db.readDataWithParams(query, name).toList().toTask()
 }
+def getConsumableByName(db: Database, name: String): Consumable = {
+  val query = "SELECT name, description, urgency, assigned_flatmates, flatmate_bought_count FROM consumables WHERE name = ?"
+  db.readDataWithParams(query, name).toList().toConsumable()
+}
+
+

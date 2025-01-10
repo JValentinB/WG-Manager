@@ -1,5 +1,5 @@
 // Based on Exercise 5
-module counter
+module UI
 
 import src/utils/dom
 

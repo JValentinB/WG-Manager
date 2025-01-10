@@ -6,6 +6,7 @@ import io/filesystem
 import io/error
 
 import src/database/database
+import src/database/data
 
 // Node.js HTTP server FFI definitions
 extern type Server
@@ -24,10 +25,13 @@ extern pure def getUrl(req: Request): String =
 extern pure def getMethod(req: Request): String =
   jsNode "${req}.method"
 
-extern io def getData(req: Request): String =
+extern pure def getData(req: Request): String =
   jsNode """console.log(${req});
     ${req}.body
   """
+
+extern pure def getCurrentTime(): Int =
+  jsNode "Date.now()"
 
 extern async def getBody(req: Request): String =
   jsNode """$effekt.capture(callback => {
@@ -42,6 +46,9 @@ extern async def getBody(req: Request): String =
 
 extern def getJsonValue(json: String, key: String): String =
   jsNode """JSON.parse(${json})[${key}]"""
+
+extern def getJsonValueAsInt(json: String, key: String): Int =
+  jsNode """parseInt(JSON.parse(${json})[${key}])"""
 
 extern io def writeHead(res: Response, status: Int, contentType: String): Unit =
   jsNode "${res}.writeHead(${status}, { 'Content-Type': ${contentType}, 'Access-Control-Allow-Origin': '*' })"
@@ -117,6 +124,30 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
     //   writeHead(res, 200, "application/json")
     //   end(res, """{"count":""" ++ show(counter.get()) ++ "}")
     // }
+    case ("POST", "addTask") => {
+      val name = body.getJsonValue("name")
+      val description = body.getJsonValue("description")
+      val schedule = body.getJsonValueAsInt("schedule")
+
+      if (name != "" && description != "") {
+        val currentTimestamp = getCurrentTime()
+        val names = db.getFlatmateNames()
+        val firstName = names match {
+          case Cons(name, _) => name
+          case _ => ""
+        }
+
+        val task = Task(name, description, schedule, currentTimestamp, names, firstName)
+        db.insertTask(task)
+        db.saveDatabase(dbPath)
+
+        writeHead(res, 200, "application/json")
+        end(res, """{"success":true}""")
+      } else {
+        writeHead(res, 400, "application/json")
+        end(res, """{"error":"Name, description and schedule are required"}""")
+      }
+    }
     case ("POST", "addFlatmate") => {
       val name = body.getJsonValue("name")
       if (name != "") {
