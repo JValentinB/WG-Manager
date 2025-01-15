@@ -16,19 +16,34 @@ type Event {
   ShowAddMenu(section: String);
   HideAddMenu(section: String);
 
+  ShowEditMenu(section: String, entryName: String);
+  HideEditMenu(section: String);
+
   Change(n: Int);
   Reset();
   BorderOn(node: Node);
   BorderOff(node: Node);
 
   AddTask(name: Node, desc: Node, schedule: Node);
+  AddConsumable(name: Node, desc: Node);
   AddFlatmate(input: Node);
+
+  DeleteTask(name: String);
+  DeleteConsumable(name: String);
+  DeleteFlatmate(name: String);
+
+  UpdateTask(oldName: String, newName: Node, desc: Node, schedule: Node);
+  UpdateConsumable(oldName: String, newName: Node, desc: Node);
+  UpdateFlatmate(oldName: String, newName: Node);
 }
 
 interface Model {
   def switchSection(section: String): Unit
   def showAddMenu(section: String): Unit
   def hideAddMenu(section: String): Unit
+
+  def showEditMenu(section: String, entryName: String): Unit
+  def hideEditMenu(section: String): Unit
 
   def change(n: Int): Unit
   def reset(): Unit
@@ -38,7 +53,219 @@ interface Model {
 }
 interface DataModel {
   def addTask(name: Node, desc: Node, schedule: Node): Unit
+  def addConsumable(name: Node, desc: Node): Unit
   def addFlatmate(input: Node): Unit
+
+  def deleteTask(name: String): Unit
+  def deleteConsumable(name: String): Unit
+  def deleteFlatmate(name: String): Unit
+
+  def updateTask(oldName: String, newName: Node, desc: Node, schedule: Node): Unit
+  def updateConsumable(oldName: String, newName: Node, desc: Node): Unit
+  def updateFlatmate(oldName: String, newName: Node): Unit
+}
+
+def run[St](root: Node, init: St, app: Application[St, Event]): Unit = app match {
+  case Application(update, view) =>
+    val inbox = ref[List[Event]](Nil())
+    val state = ref(init)
+
+    def send(ev: Event): Unit = inbox.set(Cons(ev, inbox.get))
+
+    def render(html: HtmlElement[St, Event]): Node = {
+      var node = html.node
+      node = node.innerHTML(html.text) // set the text of the node
+      // either run the app or render the children
+      html.app match {
+        case Some(app) => run(node, state.get, app)
+        case None() => html.children.foreach { child => 
+          node.appendChild(child.render)
+          ()
+        }
+      }
+      html.attributes.foreach { attr => 
+        node.setAttribute(attr.name, attr.value)
+        ()
+      }
+      html.handlers.foreach { handler =>
+        handler match {
+          case OnClick(ev) => {
+            node.onClick(box { send(ev) })
+          }
+          case OnChange(ev) => ()
+          case OnMouseEnter(ev) => {
+            node.onMouseEnter(box { send(ev) })
+          }
+          case OnMouseLeave(ev) => node.onMouseLeave(box { send(ev) })
+        }
+        ()
+      }
+      node
+    }
+
+    // renders the app with the current state
+    def render(): Unit = {
+      val rendered = statefully(state) { view() }.render
+      root.clear;
+      root.appendChild(rendered);
+      ()
+    }
+
+    def loop(deadline: IdleDeadline): Unit = {
+      val messages = inbox.get.reverse
+      inbox.set(Nil())
+
+      if (messages.nonEmpty) {
+        messages.foreach { ev =>
+          ev match {
+            case AddTask(_, _, _) => {
+              statefully(state) { update(ev) }
+              render()
+            }
+            case AddConsumable(_, _) => {
+              statefully(state) { update(ev) }
+              render()
+            }
+            case AddFlatmate(_) => {
+              statefully(state) { update(ev) }
+              render()
+            }
+
+            case DeleteTask(_) => {
+              statefully(state) { update(ev) }
+              render()
+            }
+            case DeleteConsumable(_) => {
+              statefully(state) { update(ev) }
+              render()
+            }
+            case DeleteFlatmate(_) => {
+              statefully(state) { update(ev) }
+              render()
+            }
+
+            case UpdateTask(_, _, _, _) => {
+              statefully(state) { update(ev) }
+              render()
+            }
+            case UpdateConsumable(_, _, _) => {
+              statefully(state) { update(ev) }
+              render()
+            }
+            case UpdateFlatmate(_, _) => {
+              statefully(state) { update(ev) }
+              render()
+            }
+
+            case _ => statefully(state) { update(ev) }
+          }
+        }
+      }
+      requestIdleCallback(box loop)
+    }
+
+    render()
+    requestIdleCallback(box loop)
+}
+
+def dispatch(msg: Event) = {
+  msg match {
+    case SwitchSection(section) => do switchSection(section)
+    case ShowAddMenu(section) => do showAddMenu(section)
+    case HideAddMenu(section) => do hideAddMenu(section)
+
+    case ShowEditMenu(section, entryName) => do showEditMenu(section, entryName)
+    case HideEditMenu(section) => do hideEditMenu(section)
+
+    case Change(n) => do change(n)
+    case Reset() => do reset()
+    case BorderOn(node) => do borderOn(node)
+    case BorderOff(node) => do borderOff(node)
+    case _ => ()
+  }
+}
+def dispatchData(msg: Event) = {
+  msg match {
+    case AddTask(name, desc, schedule) => do addTask(name, desc, schedule)
+    case AddConsumable(name, desc) => do addConsumable(name, desc)
+    case AddFlatmate(input) => do addFlatmate(input) 
+
+    case DeleteTask(name) => do deleteTask(name)
+    case DeleteConsumable(name) => do deleteConsumable(name)  
+    case DeleteFlatmate(name) => do deleteFlatmate(name)
+
+    case UpdateTask(oldName, newName, desc, schedule) => do updateTask(oldName, newName, desc, schedule)
+    case UpdateConsumable(oldName, newName, desc) => do updateConsumable(oldName, newName, desc)
+    case UpdateFlatmate(oldName, newName) => do updateFlatmate(oldName, newName)
+    case _ => ()
+  }
+}
+
+def mainController[R] { prog: => R / Model }: R / State[Int] =
+  try { prog() }
+  with Model {
+    def switchSection(section: String) = {
+      ["tasks", "consumables", "flatmates"].foreach { id =>
+        val sectionDiv = getElementById(id ++ "Settings")
+        sectionDiv match {
+          case Some(node) => {
+            node.toggleDisplay(section == id)
+          }
+          case None() => ()
+        }
+        val sectionButton = getElementById(id ++ "Button")
+        sectionButton match {
+          case Some(node) => {
+            if (section == id) {
+              node.setAttribute("style", stylesNavBar("navButtonActive"))
+            } else {
+              node.setAttribute("style", stylesNavBar("navButton"))
+            }
+            ()
+          }
+          case None() => ()
+        }
+        ()
+      }
+      resume(())
+    }
+    def showAddMenu(section: String) = {
+      toggleAddMenu(section, true)
+      resume(())
+    }
+    def hideAddMenu(section: String) = {
+      toggleAddMenu(section, false)
+      resume(())
+    }
+
+    def showEditMenu(section: String, entryName: String) = {
+      toggleEditMenu(section, entryName)
+      resume(())
+    }
+    def hideEditMenu(section: String) = {
+      toggleEditMenu(section, "")
+      resume(())
+    }
+
+    def count() = resume(do getState())
+    def change(n: Int) = {
+      val response = post("/change/" ++ show(n))
+      do setState(getCount(response))
+      resume(())
+    }
+    def reset() = {
+      val response = post("/reset")
+      do setState(getCount(response))
+      resume(())
+    }
+    def borderOn(node: Node) = {
+      node.setStyle("outline", "1px solid #287aa6")
+      resume(())
+    }
+    def borderOff(node: Node) = {
+      node.setStyle("outline", "none")
+      resume(())
+    }
 }
 
 
@@ -52,7 +279,6 @@ def runApp(): Unit = {
   def updateDatabase(): Unit = {
     database = fetchDatabase("/database")
   }
-
   def updateDataCategoryFromDatabase(category: String): Unit = {
     category match {
       case "flatmates" => flatmates = database.getFlatmates()
@@ -62,168 +288,7 @@ def runApp(): Unit = {
     }
   }
 
-
-
-  def run[St](root: Node, init: St, app: Application[St, Event]): Unit = app match {
-    case Application(update, view) =>
-      // rootElement.attributes.foreach { attr => 
-      //   rootElement.node.setAttribute(attr.name, attr.value)
-      //   ()
-      // }
-      
-      // val root = rootElement.node
-      val inbox = ref[List[Event]](Nil())
-      val state = ref(init)
-
-      def send(ev: Event): Unit = inbox.set(Cons(ev, inbox.get))
-
-      def render(html: HtmlElement[St, Event]): Node = {
-        var node = html.node
-        node = node.innerHTML(html.text) // set the text of the node
-        // either run the app or render the children
-        html.app match {
-          case Some(app) => run(node, state.get, app)
-          case None() => html.children.foreach { child => 
-            node.appendChild(child.render)
-            ()
-          }
-        }
-        html.attributes.foreach { attr => 
-          node.setAttribute(attr.name, attr.value)
-          ()
-        }
-        html.handlers.foreach { handler =>
-          handler match {
-            case OnClick(ev) => {
-              node.onClick(box { send(ev) })
-            }
-            case OnChange(ev) => ()
-            case OnMouseEnter(ev) => {
-              node.onMouseEnter(box { send(ev) })
-            }
-            case OnMouseLeave(ev) => node.onMouseLeave(box { send(ev) })
-          }
-          ()
-        }
-        node
-      }
-
-      // renders the app with the current state
-      def render(): Unit = {
-        val rendered = statefully(state) { view() }.render
-        root.clear;
-        root.appendChild(rendered);
-        ()
-      }
-
-      def loop(deadline: IdleDeadline): Unit = {
-        val messages = inbox.get.reverse
-        inbox.set(Nil())
-
-        if (messages.nonEmpty) {
-          messages.foreach { ev =>
-            ev match {
-              case AddTask(_, _, _) => {
-                statefully(state) { update(ev) }
-                render()
-              }
-              case AddFlatmate(_) => {
-                statefully(state) { update(ev) }
-                render()
-              }
-
-              case _ => statefully(state) { update(ev) }
-            }
-          }
-        }
-        requestIdleCallback(box loop)
-      }
-
-      render()
-      requestIdleCallback(box loop)
-  }
-
-
-  def dispatch(msg: Event) = {
-    msg match {
-      case SwitchSection(section) => do switchSection(section)
-      case ShowAddMenu(section) => do showAddMenu(section)
-      case HideAddMenu(section) => do hideAddMenu(section)
-
-      case Change(n) => do change(n)
-      case Reset() => do reset()
-      case BorderOn(node) => do borderOn(node)
-      case BorderOff(node) => do borderOff(node)
-      case _ => ()
-    }
-  }
-  def dispatchData(msg: Event) = {
-    msg match {
-      case AddTask(name, desc, schedule) => do addTask(name, desc, schedule)
-      case AddFlatmate(input) => do addFlatmate(input) 
-      case _ => ()
-    }
-  }
-
-
-  def mainController[R] { prog: => R / Model }: R / State[Int] =
-    try { prog() }
-    with Model {
-      def switchSection(section: String) = {
-        ["tasks", "consumables", "flatmates"].foreach { id =>
-          val sectionDiv = getElementById(id ++ "Settings")
-          sectionDiv match {
-            case Some(node) => {
-              node.toggleDisplay(section == id)
-            }
-            case None() => ()
-          }
-          val sectionButton = getElementById(id ++ "Button")
-          sectionButton match {
-            case Some(node) => {
-              if (section == id) {
-                node.setAttribute("style", stylesNavBar("navButtonActive"))
-              } else {
-                node.setAttribute("style", stylesNavBar("navButton"))
-              }
-              ()
-            }
-            case None() => ()
-          }
-          ()
-        }
-        resume(())
-      }
-      def showAddMenu(section: String) = {
-        toggleAddMenu(section, true)
-        resume(())
-      }
-      def hideAddMenu(section: String) = {
-        toggleAddMenu(section, false)
-        resume(())
-      }
-
-      def count() = resume(do getState())
-      def change(n: Int) = {
-        val response = post("/change/" ++ show(n))
-        do setState(getCount(response))
-        resume(())
-      }
-      def reset() = {
-        val response = post("/reset")
-        do setState(getCount(response))
-        resume(())
-      }
-      def borderOn(node: Node) = {
-        node.setStyle("outline", "1px solid #287aa6")
-        resume(())
-      }
-      def borderOff(node: Node) = {
-        node.setStyle("outline", "none")
-        resume(())
-      }
-  }
-  def dataController[R] { prog: => R / DataModel }: R / State[Int] =
+  def dataController[R] { prog: => R / DataModel }: R / State[Int] = {
     try { prog() }
     with DataModel {
       def addTask(name: Node, desc: Node, schedule: Node) = {
@@ -238,16 +303,67 @@ def runApp(): Unit = {
         }
         resume(())
       }
-      def addFlatmate(input: Node) = {
-        val name = input.getValue()
-        if (name != "") {
-          val response = post("/addFlatmate", "{\"name\":\"" ++ name ++ "\"}")
+      def addConsumable(name: Node, desc: Node) = {
+        val consumableName = name.getValue()
+        val consumableDesc = desc.getValue()
+        if (consumableName != "" && consumableDesc != "") {
+          val response = post("/addConsumable", "{\"name\":\"" ++ consumableName ++ "\",\"description\":\"" ++ consumableDesc ++ "\"}")
           updateDatabase()
-          updateDataCategoryFromDatabase("flatmates")
+          updateDataCategoryFromDatabase("consumables")
           ()
         }
         resume(())
       }
+      def addFlatmate(input: Node) = {
+        val name = input.getValue()
+        if (name != "") {
+          val response = post("/addFlatmate", "{\"name\":\"" ++ name ++ "\"}")
+          try {
+            checkResponse(response)
+          } with ServerMessage {
+            def success() = {
+              updateDatabase()
+              updateDataCategoryFromDatabase("flatmates")   
+              resume(())
+            }
+            def error(msg: String) = {
+              consoleError(msg)
+              alert(msg)
+              resume(())
+            }
+          }
+        }
+        resume(())
+      }
+      def deleteTask(name: String) = {
+        val response = post("/deleteTask", "{\"name\":\"" ++ name ++ "\"}")
+        updateDatabase()
+        updateDataCategoryFromDatabase("tasks")
+        resume(())
+      }
+      def deleteConsumable(name: String) = {
+        val response = post("/deleteConsumable", "{\"name\":\"" ++ name ++ "\"}")
+        updateDatabase()
+        updateDataCategoryFromDatabase("consumables")
+        resume(())
+      }
+      def deleteFlatmate(name: String) = {
+        val response = post("/deleteFlatmate", "{\"name\":\"" ++ name ++ "\"}")
+        updateDatabase()
+        updateDataCategoryFromDatabase("flatmates")
+        resume(())
+      }
+
+      def updateTask(oldName: String, newName: Node, desc: Node, schedule: Node) = {
+        resume(())
+      }
+      def updateConsumable(oldName: String, newName: Node, desc: Node) = {
+        resume(())
+      }
+      def updateFlatmate(oldName: String, newName: Node) = {
+        resume(())
+      }
+    }
   }
 
 
@@ -281,7 +397,6 @@ def runApp(): Unit = {
       [], Some(navBarApp))
     navBar
   }
-
   def viewAddButton(section: String): HtmlElement[Int, Event] / Model = {
     val addButton = button("+", [], 
       [Attribute("style", styles("addButton")), Attribute("id", section ++ "AddButton")], 
@@ -289,6 +404,8 @@ def runApp(): Unit = {
     )
     addButton
   }
+
+
   def viewAddTask(): HtmlElement[Int, Event] / { Model, DataModel } = {
     val nameInput = input("", [], 
       [Attribute("style", styles("textInput")), Attribute("placeholder", "Enter task name")], 
@@ -315,7 +432,33 @@ def runApp(): Unit = {
     val buttonContainer = div("", [confirmButton, cancelButton], [Attribute("style", styles("buttonGroup"))], [], None())
     val container = div("", 
       [nameInput, descriptionInput, scheduleInput, buttonContainer], 
-      [Attribute("style", stylesFlatmates("addMenu")), Attribute("id", "tasksAddMenu")],
+      [Attribute("style", styles("addMenu")), Attribute("id", "tasksAddMenu")],
+      [], None()
+    )
+    container
+  }
+  def viewAddConsumable(): HtmlElement[Int, Event] / { Model, DataModel } = {
+    val nameInput = input("", [], 
+      [Attribute("style", styles("textInput")), Attribute("placeholder", "Enter consumable name")], 
+      [], None()
+    )
+    val descriptionInput = input("", [], 
+      [Attribute("style", styles("textInput")), Attribute("placeholder", "Enter consumable description")], 
+      [], None()
+    )
+
+    val confirmButton = button("Add", [], 
+      [Attribute("style", styles("groupButton"))], 
+      [OnClick(AddConsumable(nameInput.node, descriptionInput.node))], None()
+    )
+    val cancelButton = button("Cancel", [], 
+      [Attribute("style", styles("groupButton"))], 
+      [OnClick(HideAddMenu("consumables"))], None()
+    )
+    val buttonContainer = div("", [confirmButton, cancelButton], [Attribute("style", styles("buttonGroup"))], [], None())
+    val container = div("", 
+      [nameInput, descriptionInput, buttonContainer], 
+      [Attribute("style", styles("addMenu")), Attribute("id", "consumablesAddMenu")],
       [], None()
     )
     container
@@ -337,27 +480,68 @@ def runApp(): Unit = {
     val buttonContainer = div("", [confirmButton, cancelButton], [Attribute("style", styles("buttonGroup"))], [], None())
     val container = div("", 
       [input, buttonContainer], 
-      [Attribute("style", stylesFlatmates("addMenu")), Attribute("id", "flatmatesAddMenu")],
+      [Attribute("style", styles("addMenu")), Attribute("id", "flatmatesAddMenu")],
       [], None()
     )
     container
   }
 
+
+  def viewEditTask(task: Task): HtmlElement[Int, Event] / { Model, DataModel } = {
+    div(task.name, [], [Attribute("style", stylesSection("title"))], [], None())
+  }
+  def viewEditConsumable(consumable: Consumable): HtmlElement[Int, Event] / { Model, DataModel } = {
+    div(consumable.name, [], [Attribute("style", stylesSection("title"))], [], None())
+  }
+  def viewEditFlatmate(flatmate: Flatmate): HtmlElement[Int, Event] / { Model, DataModel } = {
+    val title = div(flatmate.name, [], [Attribute("style", stylesSection("title"))], [], None())
+    val textInput = input("", [], 
+      [Attribute("style", styles("textInput")), Attribute("placeholder", "Enter a new name")], 
+      [], None()
+    )
+    val deleteButton = button("Delete", [], 
+      [Attribute("style", styles("groupButton"))],
+      [OnClick(DeleteFlatmate(flatmate.name))], None()
+    )
+    // Add a confirm and cancel in a button group
+    val confirmButton = button("Confirm", [], 
+      [Attribute("style", styles("groupButton"))], 
+      [OnClick(UpdateFlatmate(flatmate.name, textInput.node))], None()
+    )
+    val cancelButton = button("Cancel", [], 
+      [Attribute("style", styles("groupButton"))], 
+      [OnClick(HideEditMenu("flatmate"))], None()
+    )
+    val buttonContainer = div("", [confirmButton, cancelButton], [Attribute("style", styles("buttonGroup"))], [], None())
+    div("", 
+      [title, textInput, deleteButton, buttonContainer], 
+      [Attribute("style", stylesSection("editMenu")), Attribute("id", flatmate.name ++ "Edit")],
+      [], None()
+    )
+  }
+
+
   def viewSingleTask(task: Task): HtmlElement[Int, Event] / { Model, DataModel } = {
     // Create a card for each flatmate assign to the task an put them in a container
     def taskMenu(): HtmlElement[Int, Event] / { Model, DataModel } = {
+      val reorderedFlatmates = task.assignedFlatmates.reorderFlatmates(task.nextInTurn)
       var flatmateCards = empty[HtmlElement[Int, Event]]()
-      task.assignedFlatmates.foreach { name =>
-        consoleLog(name)
+      reorderedFlatmates.foreach { name =>
         val flatmate = database.getFlatmateByName(name)
-        consoleLog(flatmate)
-        val flatmateCard = div(name, [], [Attribute("style", styleCard(flatmate.color))], [], None())
+        var scale = 1.0
+        if (task.nextInTurn == name) {
+          scale = 1.1
+        }
+
+        val flatmateCard = div(name, [], [Attribute("style", styleCard(flatmate.color, scale))], [], None())
         flatmateCards = flatmateCards.append([flatmateCard])
         ()
       }
-      val title = div(task.name, [], [Attribute("style", stylesTasks("taskTitle"))], [], None())
-      val cardsContainer = div("", flatmateCards, [Attribute("style", stylesTasks("cardsContainer"))], [], None())
-      div("", [title, cardsContainer], [Attribute("style", stylesTasks("taskContainer"))], [], None())
+
+      val nextTime = nextTimeToBeDone(task)
+      val title = div(task.name++ " - Next on " ++ nextTime, [], [Attribute("style", stylesSection("title"))], [], None())
+      val cardsContainer = div("", flatmateCards, [Attribute("style", stylesSection("cardsContainer"))], [], None())
+      div("", [title, cardsContainer], [Attribute("style", stylesSection("entryContainer"))], [], None())
     }
 
     val taskApp = Application[Int, Event](
@@ -373,11 +557,47 @@ def runApp(): Unit = {
         taskMenu()
       }
     )
-    div("", [], [Attribute("id", "tasksSettings"), Attribute("style", "display: block")], [], Some(taskApp))
+    div("", [], [Attribute("id", task.name ++ "Settings"), Attribute("style", "display: block; width: 100%;")], [], Some(taskApp))
+  }
+  def viewSingleConsumable(consumable: Consumable): HtmlElement[Int, Event] / { Model, DataModel } = {
+    // Create a card for each flatmate assign to the task an put them in a container
+    def consumableMenu(): HtmlElement[Int, Event] / { Model, DataModel } = {
+      var flatmateCards = empty[HtmlElement[Int, Event]]()
+      consumable.assignedFlatmates.foreach { name =>
+        val flatmate = database.getFlatmateByName(name)
+        var scale = 1.0
+
+        val flatmateCard = div(name, [], [Attribute("style", styleCard(flatmate.color, scale))], [], None())
+        flatmateCards = flatmateCards.append([flatmateCard])
+        ()
+      }
+
+      val title = div(consumable.name, [], [Attribute("style", stylesSection("title"))], [], None())
+      val cardsContainer = div("", flatmateCards, [Attribute("style", stylesSection("cardsContainer"))], [], None())
+      div("", [title, cardsContainer], [Attribute("style", stylesSection("entryContainer"))], [], None())
+    }
+
+    val consumableApp = Application[Int, Event](
+      box { (ev) => 
+        with mainController
+        with dataController
+        ev.dispatch()
+        ev.dispatchData()
+      },
+      box { 
+        with mainController
+        with dataController
+        consumableMenu()
+      }
+    )
+    div("", [], [Attribute("id", consumable.name ++ "Settings"), Attribute("style", "display: block; width: 100%;")], [], Some(consumableApp))
+  }
+  def viewSingleFlatmate(flatmate: Flatmate): HtmlElement[Int, Event] / { Model, DataModel } = {
+    div(flatmate.name, [], [Attribute("style", styleCard(flatmate.color, 1.0))], [OnClick(ShowEditMenu("flatmate", flatmate.name))], None())
   }
 
-  def viewTasks(): HtmlElement[Int, Event] / { Model, DataModel } = {
 
+  def viewTasks(): HtmlElement[Int, Event] / { Model, DataModel } = {
     def menu(): HtmlElement[Int, Event] / { Model, DataModel } = {
       var taskMenus = empty[HtmlElement[Int, Event]]()
       tasks.foreach { task =>
@@ -385,14 +605,14 @@ def runApp(): Unit = {
           taskMenus = taskMenus.append([taskMenu])
           ()
       }
-      val menusContainer = div("", taskMenus, [Attribute("style", stylesFlatmates("menusContainer"))], [], None())
+      val listContainer = div("", taskMenus, [Attribute("style", stylesSection("listContainer"))], [], None())
 
       // Create the button to add a new task
       val addButton = viewAddButton("tasks")
       val addTaskMenu = viewAddTask()
-      val addContainer = div("", [addButton, addTaskMenu], [Attribute("style", stylesFlatmates("addContainer"))], [], None())
+      val addContainer = div("", [addButton, addTaskMenu], [Attribute("style", styles("addContainer"))], [], None())
       
-      div("", [menusContainer, addContainer], [Attribute("style", stylesFlatmates("taskContainer"))], [], None())
+      div("", [listContainer, addContainer], [Attribute("style", stylesSection("listContainer"))], [], None())
     }
     
     
@@ -412,38 +632,63 @@ def runApp(): Unit = {
     div("", [], [Attribute("id", "tasksSettings"), Attribute("style", "display: block")], [], Some(taskApp))
   }
   def viewConsumables(): HtmlElement[Int, Event] / Model = {
-    var consumableCards = empty[HtmlElement[Int, Event]]()
-    // consumables.foreach { consumable =>
-    //     val consumableCard = div(consumable.name, [], [Attribute("style", stylesFlatmates("consumableCard"))], [], None())
-    //     consumableCards = consumableCards.append([consumableCard])
-    //     ()
-    // }
-    // Create the button to add a new consumable
-    val addButton = viewAddButton("consumables")
-    // Create the containers
-    val cardsContainer = div("", consumableCards, [Attribute("style", stylesFlatmates("cardsContainer"))], [], None())
-    val buttonContainer = div("", [addButton], [Attribute("style", stylesFlatmates("buttonContainer"))], [], None())
-    val container = div("", [cardsContainer, buttonContainer], [Attribute("style", stylesFlatmates("consumableContainer"))], [], None())
+    def menu(): HtmlElement[Int, Event] / { Model, DataModel } = {
+      var consumableMenus = empty[HtmlElement[Int, Event]]()
+      consumables.foreach { consumable =>
+          val consumableMenu = viewSingleConsumable(consumable)
+          consumableMenus = consumableMenus.append([consumableMenu])
+          ()
+      }
+      val listContainer = div("", consumableMenus, [Attribute("style", stylesSection("listContainer"))], [], None())
+
+      // Create the button to add a new consumable
+      val addButton = viewAddButton("consumables")
+      val addConsumableMenu = viewAddConsumable()
+      val addContainer = div("", [addButton, addConsumableMenu], [Attribute("style", styles("addContainer"))], [], None())
+      
+      div("", [listContainer, addContainer], [Attribute("style", stylesSection("listContainer"))], [], None())
+    }
     
-    div("", [container], [Attribute("id", "consumablesSettings"), Attribute("style", "display: none")], [], None())
+    val consumableApp = Application[Int, Event](
+      box { (ev) => 
+        with mainController
+        with dataController
+        ev.dispatch()
+        ev.dispatchData()
+      },
+      box { 
+        with mainController
+        with dataController
+        menu()
+      }
+    )
+    div("", [], [Attribute("id", "consumablesSettings"), Attribute("style", "display: none;")], [], Some(consumableApp))
   }
   def viewFlatmates(): HtmlElement[Int, Event] / { Model, DataModel } = { 
 
     def menu(): HtmlElement[Int, Event] / { Model, DataModel } = {
       var cards = empty[HtmlElement[Int, Event]]()
+      var editMenus = empty[HtmlElement[Int, Event]]()
       flatmates.foreach { flatmate =>
-        var flatmateCard = div(flatmate.name, [], [Attribute("style", styleCard(flatmate.color))], [], None())
+        val flatmateCard = viewSingleFlatmate(flatmate)
         cards = cards.append([flatmateCard])
+        val editFlatmate = viewEditFlatmate(flatmate)
+        editMenus = editMenus.append([editFlatmate])
         ()
       }
-      val cardsContainer = div("", cards, [Attribute("style", stylesFlatmates("cardsContainer"))], [], None())
+      val cardsContainer = div("", cards, [Attribute("style", stylesSection("cardsContainer"))], [], None())
+      val title = div("Flatmates", [], [Attribute("style", stylesSection("title"))], [], None())
+      val menuContainer = div("", [title, cardsContainer], [Attribute("style", stylesSection("entryContainer"))], [], None())
+
+      val editContainer = div("", editMenus, [Attribute("style", "display: block; width: 100%;"), Attribute("id", "flatmateEdit")], [], None())
 
       val addButton = viewAddButton("flatmates")
       val addFlatmateMenu = viewAddFlatmate()
-      val addContainer = div("", [addButton, addFlatmateMenu], [Attribute("style", stylesFlatmates("addContainer"))], [], None())
+      val addContainer = div("", [addButton, addFlatmateMenu], [Attribute("style", styles("addContainer"))], [], None())
 
-      div("", [cardsContainer, addContainer], [Attribute("style", stylesFlatmates("flatmateContainer"))], [], None())
+      div("", [menuContainer, editContainer, addContainer], [Attribute("style", stylesSection("listContainer"))], [], None())
     }
+
     val flatmateApp = Application[Int, Event](
       box { (ev) => 
         with mainController
@@ -457,7 +702,7 @@ def runApp(): Unit = {
         menu()
       }
     )
-    div("", [], [Attribute("id", "flatmatesSettings"), Attribute("style", "display: none")], [], Some(flatmateApp))
+    div("", [], [Attribute("id", "flatmatesSettings"), Attribute("style", "display: none;")], [], Some(flatmateApp))
   }
 
 
@@ -492,7 +737,6 @@ def runApp(): Unit = {
   ))
   ()
 }
-
 
 def main() = {
   // Download the sql.js library

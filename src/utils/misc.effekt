@@ -1,0 +1,22 @@
+module misc 
+
+extern pure def timestampToFormattedDate(timestamp: Int): String =
+  jsWeb """new Date(${timestamp}).toLocaleDateString()"""
+
+extern pure def addDays(date: Int, days: Int): Int =
+  jsWeb """new Date(${date}).getTime() + ${days} * 24 * 60 * 60 * 1000"""
+
+extern pure def getWindowWidth(): Int =
+  jsWeb "window.innerWidth"
+
+  
+
+def filter[T](list: List[T]) {f: T => Bool}: List[T] = {
+  var result = empty[T]()
+  list.foreach { item =>
+    if (f(item) == false) {
+      result = result.append([item])
+    }
+  }
+  result
+}

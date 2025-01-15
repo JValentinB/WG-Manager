@@ -2,10 +2,11 @@
 module UI
 
 import src/utils/dom
+// import src/utils/misc
 
 import ref
 import string
-import test
+
 
 record Application[St, Ev](
   update: Ev => Unit / State[St] at {io, global, async},
@@ -77,6 +78,15 @@ def toggleDisplay(node: Node, show: Bool): Unit = {
     ()
   }
 }
+def toggleDisplay(node: Node, show: Bool, mode: String): Unit = {
+  if (show) {
+    node.setStyle("display", mode)
+    ()
+  } else {
+    node.setStyle("display", "none")
+    ()
+  }
+}
 
 def toggleAddMenu(section: String, show: Bool) = {
   val addFlatmate = getElementById(section ++ "AddMenu")
@@ -92,6 +102,51 @@ def toggleAddMenu(section: String, show: Bool) = {
       node.toggleDisplay(show == false)
     }
     case None() => ()
+  }
+}
+
+def toggleEditMenu(section: String, entryName: String) = {
+  val container = getElementById(section ++ "Edit")
+  container match {
+    case Some(node) => {
+      val children = node.getChildren().toList()
+      children.foreach { child =>
+        if (child.getID() == entryName ++ "Edit") {
+          child.toggleDisplay(true, "flex")
+        }
+        else {
+          child.toggleDisplay(false)
+        }
+      }
+      ()
+    }
+    case None() => ()
+  }
+}
+
+
+
+interface ServerMessage {
+  def success(): Unit
+  def error(msg: String): Unit
+}
+
+def checkResponse(response: String): Unit / ServerMessage = {
+  with on[OutOfBounds].default { consoleLog("Index out of bounds") };
+  with on[WrongFormat].default { consoleLog("Wrong Format") };
+
+  var length = response.length
+  var res = response.substring(1, length - 1)
+  val list = res.split(":")
+
+  val key = list.get(0)
+  val value = list.get(1)
+  if (key == "\"success\"" && value == "true") {
+    do success()
+  } else if (key == "\"error\"") {
+    do error(value)
+  } else {
+    do error("Something went wrong")
   }
 }
 

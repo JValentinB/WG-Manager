@@ -5,6 +5,8 @@ import array
 import io/filesystem
 import option
 
+import src/utils/misc
+
 record Flatmate (
   name: String,
   color: String
@@ -14,17 +16,17 @@ record Task (
   name: String,
   description: String,
   schedule: Int,
-  lastTimeDone: Int,
+  lastDone: Int,
   assignedFlatmates: List[String], // List of flatmate names
-  flatmateNextInTurn: String
+  nextInTurn: String
 )
 
 record Consumable (
   name: String,
   description: String,
-  urgency: Int,
   assignedFlatmates: List[String],
-  flatmateBoughtCount: List[(String, Int)]
+  count: List[(String, Int)],
+  urgency: Int
 )
 
 // record ManagerData (
@@ -33,37 +35,26 @@ record Consumable (
 //   consumables: List[Consumable]
 // )
 
-def filter[T](list: List[T]) {f: T => Bool}: List[T] = {
-  var result = empty[T]()
-  list.foreach { item =>
-    if (f(item)) {
-      result = result.append([item])
-    }
-  }
-  result
-}
-
+def toListOfStrings(flatmate: Flatmate): List[String] = [flatmate.name, flatmate.color]
 def toListOfStrings(task: Task): List[String] = {
   var flatmates = ""
   task.assignedFlatmates.foreach { flatmate =>
     flatmates = flatmates ++ flatmate ++ ","
   }
   
-  [task.name, task.description, show(task.schedule), show(task.lastTimeDone), flatmates, task.flatmateNextInTurn]
+  [task.name, task.description, show(task.schedule), show(task.lastDone), flatmates, task.nextInTurn]
 }
-
 def toListOfStrings(consumable: Consumable): List[String] = {
   var flatmates = ""
   consumable.assignedFlatmates.foreach { flatmate =>
     flatmates = flatmates ++ flatmate ++ ","
   }
 
-  var flatmateBoughtCount = ""
-  consumable.flatmateBoughtCount.foreach { case (flatmate, count) =>
-    flatmateBoughtCount = flatmateBoughtCount ++ flatmate ++ ":" ++ show(count) ++ ","
+  var count_string = ""
+  consumable.count.foreach { case (flatmate, count) =>
+    count_string = count_string ++ flatmate ++ ":" ++ show(count) ++ ","
   }
-  
-  [consumable.name, consumable.description, show(consumable.urgency), flatmates]
+  [consumable.name, consumable.description, flatmates, count_string, show(consumable.urgency)]
 }
 
 def toFlatmate(list: List[String]): Flatmate = {
@@ -76,27 +67,75 @@ def toTask(list: List[String]): Task = {
   with on[OutOfBounds].default { println("Index out of bounds"); Task("OutOfBounds", "", 0, 0, [], "") };
   with on[WrongFormat].default { println("Wrong Format"); Task("WrongFormat", "", 0, 0, [], "") };
 
-  val flatmates = list.get(4).split(",").filter { name => name != "" }
+  val flatmates = list.get(4).split(",").filter { name => name == "" }
   Task(list.get(0), list.get(1), list.get(2).toInt, list.get(3).toInt, flatmates, list.get(5))
 }
-
 def toConsumable(list: List[String]): Consumable = {
-  with on[OutOfBounds].default { println("Index out of bounds"); Consumable("OutOfBounds", "", 0, [], []) };
-  with on[WrongFormat].default { println("Wrong Format"); Consumable("WrongFormat", "", 0, [], []) };
+  with on[OutOfBounds].default { println("Index out of bounds"); Consumable("OutOfBounds", "", [], [], 0) };
+  with on[WrongFormat].default { println("Wrong Format"); Consumable("WrongFormat", "", [], [], 0) };
 
-  val flatmates = list.get(3).split(",").filter { name => name != "" }
-  val flatmateBoughtCount = list.get(4).split(",").filter { entry => entry != ""}.map { entry =>
+  val flatmates = list.get(2).split(",").filter { name => name == "" }
+  val count = list.get(3).split(",").filter { entry => entry == ""}.map { entry =>
     val split = entry.split(":")
     (split.get(0), split.get(1).toInt)
   }
-  Consumable(list.get(0), list.get(1), list.get(2).toInt, flatmates, flatmateBoughtCount)
+  Consumable(list.get(0), list.get(1), flatmates, count, list.get(4).toInt)
 }
+
+def assignFlatmate(task: Task, flatmate: String): Task = {
+  val assigned = task.assignedFlatmates.append([flatmate])
+  Task(task.name, task.description, task.schedule, task.lastDone, assigned, task.nextInTurn)
+}
+def unassignFlatmate(task: Task, flatmate: String): Task = {
+  val assigned = task.assignedFlatmates.filter { name => name == flatmate }
+  Task(task.name, task.description, task.schedule, task.lastDone, assigned, task.nextInTurn)
+}
+
+def assignFlatmate(consumable: Consumable, flatmate: String): Consumable = {
+  val assigned = consumable.assignedFlatmates.append([flatmate])
+  val count = consumable.count.append([(flatmate, 0)])
+  Consumable(consumable.name, consumable.description, assigned, count, consumable.urgency)
+}
+def unassignFlatmate(consumable: Consumable, flatmate: String): Consumable = {
+  println("Unassigning flatmate: " ++ flatmate)
+  val assigned = consumable.assignedFlatmates.filter { name => name == flatmate }
+  val count = consumable.count.filter { entry => entry match { case (name, _) => name == flatmate } }
+  Consumable(consumable.name, consumable.description, assigned, count, consumable.urgency)
+}
+
+// reorder flatmates starting with the one next in turn
+def reorderFlatmates(flatmates: List[String], nextInTurn: String): List[String] = {
+  // get index of nextInTurn
+  var i = 0
+  var flatmateIndex = 0
+  flatmates.foreach { flatmate =>
+    if (flatmate == nextInTurn) {
+      flatmateIndex = i
+    }
+    i = i + 1
+    ()
+  }
+  val drop = flatmates.drop(flatmateIndex)
+  val take = flatmates.take(flatmateIndex)
+  drop.append(take)
+}
+
+def nextTimeToBeDone(task: Task): String = {
+  val nextTime = task.lastDone.addDays(task.schedule)
+  nextTime.timestampToFormattedDate()
+}
+
+def emptyCountList(flatmates: List[String]): List[(String, Int)] = flatmates.map { flatmate => (flatmate, 0) }
+
+
+
+
+
 
 def printFlatmate(flatmate: Flatmate): Unit = {
   val string = "Flatmate: " ++ flatmate.name ++ "\n"
   println(string)
 }
-
 def printTask(task: Task): Unit = {
   var flatmates = ""
   task.assignedFlatmates.foreach { flatmate =>
@@ -106,29 +145,28 @@ def printTask(task: Task): Unit = {
   val string = "Task: " ++ task.name ++ "\n" ++
   "Description: " ++ task.description ++ "\n" ++
   "Schedule: " ++ show(task.schedule) ++ "\n" ++
-  "Last time done: " ++ show(task.lastTimeDone) ++ "\n" ++
+  "Last time done: " ++ show(task.lastDone) ++ "\n" ++
   "Assigned flatmates: " ++ flatmates ++ "\n" ++
-  "Flatmate next in turn: " ++ task.flatmateNextInTurn ++ "\n";
+  "Flatmate next in turn: " ++ task.nextInTurn ++ "\n";
 
   println(string)
 }
-
 def printConsumable(consumable: Consumable): Unit = {
   var flatmates = ""
   consumable.assignedFlatmates.foreach { flatmate =>
     flatmates = flatmates ++ flatmate ++ ", "
   }
 
-  var flatmateBoughtCount = ""
-  consumable.flatmateBoughtCount.foreach { case (flatmate, count) =>
-    flatmateBoughtCount = flatmateBoughtCount ++ flatmate ++ ": " ++ show(count) ++ ", "
+  var count_string = ""
+  consumable.count.foreach { case (flatmate, count) =>
+    count_string = count_string ++ flatmate ++ ": " ++ show(count) ++ ", "
   }
 
   val string = "Consumable: " ++ consumable.name ++ "\n" ++
   "Description: " ++ consumable.description ++ "\n" ++
   "Urgency: " ++ show(consumable.urgency) ++ "\n" ++
   "Assigned flatmates: " ++ flatmates ++ "\n" ++
-  "Flatmate bought count: " ++ flatmateBoughtCount ++ "\n";
+  "Flatmate bought count: " ++ count_string ++ "\n";
 
   println(string)
 }

@@ -16,6 +16,14 @@ def getElementById(id: String): Option[Node] = {
   undefinedToOption(unsafeElement)
 }
 
+extern io def unsafeGetElementById(root: Node, id: String): Node =
+  jsWeb "${root}.getElementById(${id})"
+
+def getElementById(root: Node, id: String): Option[Node] = {
+  val unsafeElement = unsafeGetElementById(root, id)
+  undefinedToOption(unsafeElement)
+}
+
 extern pure def getDocumentBody(): Node =
   jsWeb "(document.body)" // defensive parens are sometimes useful
 
@@ -23,25 +31,26 @@ val documentBody: Node = getDocumentBody()
 
 extern io def createElement(tag: String): Node =
   jsWeb "document.createElement(${tag})"
-
 extern io def createTextNode(text: String): Node =
   jsWeb "document.createTextNode(${text})"
+
 
 extern io def appendChild(node: Node, child: Node): Node =
   jsWeb "${node}.appendChild(${child})"
 
 extern io def setAttribute(node: Node, key: String, value: String): Node =
   jsWeb "(function() { ${node}.setAttribute(${key}, ${value}); return ${node} })()"
-
 extern io def setStyle(node: Node, key: String, value: String): Node =
   jsWeb "(function() { ${node}.style[${key}] = ${value}; return ${node} })()"
-
 extern io def innerHTML(node: Node, contents: String): Node =
   jsWeb "(function() { ${node}.innerHTML = ${contents}; return ${node}; })()"
 
+extern io def getChildren(node: Node): Array[Node] =
+  jsWeb "${node}.children"
+extern io def getID(node: Node): String =
+  jsWeb "${node}.id"
 extern io def getValue(node: Node): String =
   jsWeb "${node}.value"
-
 extern io def getStyleValue(node: Node, key: String): String =
   jsWeb "${node}.style[${key}]"
   
@@ -67,16 +76,14 @@ extern async def fetch(endpoint: String): String =
   jsWeb """$effekt.capture(callback => 
       fetch(window.location.origin + ${endpoint})
         .then(r => r.json())
-        .then(result => callback(result))
-        .catch(error => console.error(error))
+        .then(result => callback(JSON.stringify(result)))
     )"""
 
 extern async def post(endpoint: String): String =
   jsWeb """$effekt.capture(callback => 
     fetch(window.location.origin + ${endpoint}, { method: 'POST' })
       .then(r => r.json())
-      .then(result => callback(result))
-      .catch(error => console.error(error))
+      .then(result => callback(JSON.stringify(result)))
   )"""
 
 extern async def post(endpoint: String, data: String): String =
@@ -89,8 +96,7 @@ extern async def post(endpoint: String, data: String): String =
       body: ${data}
     })
       .then(r => r.json())
-      .then(result => callback(result))
-      .catch(error => console.error(error))
+      .then(result => callback(JSON.stringify(result)))
   )"""
 
 extern async def addScriptToBody(src: String): Unit =
@@ -112,6 +118,10 @@ extern pure def getCount(json: String): Int =
 // print to the browser console
 extern io def consoleLog[T](msg: T): Unit =
   jsWeb "console.log(${msg})"
+extern io def consoleError[T](msg: T): Unit =
+  jsWeb "console.error(${msg})"
+extern io def alert[T](msg: T): Unit =
+  jsWeb "window.alert(${msg})"
 
 extern async def addScriptToHead(src: String): Unit =
   jsWeb """$effekt.capture(callback => {

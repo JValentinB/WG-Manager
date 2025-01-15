@@ -1,5 +1,12 @@
 module styles
 
+import src/utils/dom
+import src/utils/misc
+
+val darkGrey = "rgb(8, 12, 17)"
+val lightGrey = "rgb(16, 24, 34)"
+
+
 def styles(id: String): String = {
   id match {
     case "body" => """
@@ -7,7 +14,7 @@ def styles(id: String): String = {
       justify-content: center;
       align-items: center;
       font-family: sans-serif;
-      background:rgb(8, 12, 17);
+      background:""" ++ darkGrey ++ """;
     """
     case "app" => """
       display: flex;
@@ -15,7 +22,7 @@ def styles(id: String): String = {
       height: 100%;
       max-width: 800px;
       color: white;
-      background: rgb(16, 24, 34);
+      background: """ ++ darkGrey ++ """;
     """
     case "appContainer" => """
       display: flex;
@@ -24,17 +31,7 @@ def styles(id: String): String = {
       width: 100%;
       height: 100%;
       color: white;
-      background: rgb(16, 24, 34);
-    """
-    case "button" => """
-      display: inline-block;
-      margin: 0 10px;
-      padding: 10px 20px;
-      background: #287aa6;
-      border: none;
-      border-radius: 5px;
-      color: white;
-      cursor: pointer;
+      background: """ ++ lightGrey ++ """;
     """
     case "addButton" => """
       width: 100%;
@@ -48,11 +45,31 @@ def styles(id: String): String = {
       color: #ccc;
       cursor: pointer;
     """
-    case "wrapper" => """
-      display: block; 
-      position: relative;
+    case "addMenu" => """
+      display: none;
+      justify-content: center;
+      align-items: center;
       width: 100%;
       height: 100%;
+    """
+    case "addContainer" => """
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+      border-top: 5px solid """ ++ darkGrey ++ """;
+    """
+    case "button" => """
+      height: 50px;
+      background-color: transparent;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border: 1px solid #ccc;
+      font-size: 30px;
+      color: #ccc;
+      cursor: pointer;
     """
     case "groupButton" => """
       flex-grow: 1;
@@ -85,12 +102,27 @@ def styles(id: String): String = {
       justify-content: center;
       align-items: center;
       border: None;
-      border-top: 3px solid #888;
-      border-bottom: 3px solid #888;
+      border-top: 5px solid """ ++ darkGrey ++ """;
+      border-bottom: 5px solid """ ++ darkGrey ++ """;
       font-size: 30px;
       color: black;
     """
-    case _ => ""
+    case "wrapper" => """
+      display: block; 
+      position: relative;
+      width: 100%;
+      height: 100%;
+    """
+    case "divider" => """
+      display: block;
+      width: 100%;
+      height: 5px;
+      background-color: """ ++ darkGrey ++ """;
+    """
+    case _ => {
+      consoleLog("unknown id: " ++ id)
+      ""
+    }
   }
 }
 
@@ -100,9 +132,9 @@ def stylesNavBar(id: String): String = {
       display: block; 
       width: 100%;
       height: 60px;
-      background: rgb(16, 24, 34);
+      background: """ ++ lightGrey ++ """;
       color: white;
-      border-radius: 5px;
+      border-bottom: 5px solid """ ++ darkGrey ++ """;
     """
     case "navButton" => """
       position: relative;
@@ -133,32 +165,34 @@ def stylesNavBar(id: String): String = {
   }
 }
 
-def stylesTasks(id: String): String = {
+def stylesSection(id: String): String = {
   id match {
+    // only containing cards
     case "cardsContainer" => """
       display: flex;
       flex-direction: row;
-      flex-wrap: wrap;
-      justify-content: center; 
+      flex-wrap: nowrap;
+      justify-content: flex-start; 
       align-items: center;
       gap: 20px;
       width: 100%;
-      height: 200px;
+      height: 190px;
       overflow-y: hidden;
       overflow-x: auto;
     """
-    case "taskContainer" => """
+    // containing cards and title
+    case "entryContainer" => """
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       align-items: center;
       width: 100%;
       height: 100%;
-
-      border-top: 3px solid #888;
-      border-bottom: 3px solid #888;
+      border-top: 5px solid """ ++ darkGrey ++ """;
+      border-bottom: 5px solid """ ++ darkGrey ++ """;
     """
-    case "menusContainer" => """
+    // containing all entries
+    case "listContainer" => """
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -166,10 +200,10 @@ def stylesTasks(id: String): String = {
       width: 100%;
       height: 100%;
     """
-    case "taskTitle" => """
-      display: block;
+    case "title" => """
+      display: flex;
       width: 100%;
-      height: 50px;
+      height: 35px;
       background-color: transparent;
       justify-content: center;
       align-items: center;
@@ -177,54 +211,32 @@ def stylesTasks(id: String): String = {
       font-size: 20px;
       color: #ccc;
     """
-    case _ => ""
-  }
-}
-
-def stylesFlatmates(id: String): String = {
-  id match {
-    case "flatmateContainer" => """
-      display: flex;
+    case "editMenu" => """
+      display: none;
       flex-direction: column;
       justify-content: space-between;
       align-items: center;
       width: 100%;
       height: 100%;
     """
-    case "cardsContainer" => """
-      display: flex;
-      flex-direction: row;
-      flex-wrap: wrap;
-      justify-content: center; 
-      align-items: center;
-      gap: 20px;
-      width: 100%;
-      height: 100%;
-      overflow-y: hidden;
-      overflow-x: auto;
-    """
-    case "addContainer" => """
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      width: 100%;
-      height: 100%;
-    """
-    case "addMenu" => """
-      display: none;
-      justify-content: center;
-      align-items: center;
-      width: 100%;
-      height: 100%;
-    """
-    case _ => ""
+    case _ => {
+      consoleLog("unknown id: " ++ id)
+      ""
+    }
   }
 }
 
-def styleCard(color: String): String = {
+def styleCard(color: String, scale: Double): String = {
+  val width = (125.0 * scale).toInt
+  val height = (150.0 * scale).toInt
+
+  var border = "border: None;"
+  if (scale > 1.0) {
+    border = "border: 2px solid white;"
+  }
   """
-    width: 125px;
-    height: 150px;
+    width: """ ++ show(width) ++ """px;
+    height: """ ++ show(height) ++ """px;
     background-color: """ ++ color ++ """;
     margin: 10px;
     display: flex;
@@ -233,5 +245,20 @@ def styleCard(color: String): String = {
     border-radius: 5px;
     font-size: 25px;
     flex-shrink: 0;
+    cursor: pointer;
+  """ ++ border
+}
+
+def styleApp(): String = {
+  val windowWidth = getWindowWidth()
+  """
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    max-width: """ ++ show(windowWidth) ++ """px;
+    background: """ ++ darkGrey ++ """;
   """
 }
