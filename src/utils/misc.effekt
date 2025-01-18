@@ -20,3 +20,46 @@ def filter[T](list: List[T]) {f: T => Bool}: List[T] = {
   }
   result
 }
+
+def indexOf[T, U](list: List[U], item: T) {equal: (T,U) => Bool}: Int = {
+  var i = 0
+  var index = -1
+  list.foreach { listItem =>
+    if (equal(item, listItem)) {
+      index = i
+    }
+    i = i + 1
+  }
+  index
+}
+
+extern pure def random(min: Int, max: Int): Int =
+  jsNode """Math.floor(Math.random() * (${max} - ${min}) + ${min})"""
+extern pure def randomWeb(min: Int, max: Int): Int =
+  jsWeb """Math.floor(Math.random() * (${max} - ${min}) + ${min})"""
+
+def colorPalette(usedColors: List[String]): String = {
+  with on[OutOfBounds].default { println("Index out of bounds"); "#f94144" };
+  with on[WrongFormat].default { println("Wrong Format"); "#f94144" };
+  val colors = [
+    "#f94144", "#f65838", "#f36f2d", "#f57938", "#f88246", 
+    "#f88a39", "#f89324", "#f8a52d", "#f8bc44", "#ddc456", 
+    "#abc065", "#7fb973", "#5bb081", "#44a58b", "#49998c", 
+    "#4e8d8e", "#52808f", "#547590", "#3d7998", "#277da1"
+  ]
+  val availableColors = colors.filter { color => usedColors.any { usedColor => usedColor == color } }
+  val randomIndex = random(0, availableColors.size() - 1)
+  availableColors.get(randomIndex)
+}
+def colorPalette(): String = {
+  with on[OutOfBounds].default { println("Index out of bounds"); "#f94144" };
+  with on[WrongFormat].default { println("Wrong Format"); "#f94144" };
+  val colors = [
+    "#f94144", "#f65838", "#f36f2d", "#f57938", "#f88246", 
+    "#f88a39", "#f89324", "#f8a52d", "#f8bc44", "#ddc456", 
+    "#abc065", "#7fb973", "#5bb081", "#44a58b", "#49998c", 
+    "#4e8d8e", "#52808f", "#547590", "#3d7998", "#277da1"
+  ]
+  val randomIndex = randomWeb(0, colors.size() - 1)
+  colors.get(randomIndex)
+}

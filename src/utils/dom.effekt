@@ -6,28 +6,26 @@ import option
 /// Represents a DOM node.
 extern type Node
 
-// Can be null/undefined!
-extern io def unsafeGetElementById(id: String): Node =
-  jsWeb "document.getElementById(${id})"
 
 // Here we're wrapping the unsafe version to do 'undefinedToOption' (to make it safer to use)
 def getElementById(id: String): Option[Node] = {
   val unsafeElement = unsafeGetElementById(id)
   undefinedToOption(unsafeElement)
 }
-
-extern io def unsafeGetElementById(root: Node, id: String): Node =
-  jsWeb "${root}.getElementById(${id})"
-
 def getElementById(root: Node, id: String): Option[Node] = {
   val unsafeElement = unsafeGetElementById(root, id)
   undefinedToOption(unsafeElement)
 }
+extern io def unsafeGetElementById(id: String): Node =
+  jsWeb "document.getElementById(${id})"
+extern io def unsafeGetElementById(root: Node, id: String): Node =
+  jsWeb "${root}.getElementById(${id})"
+
 
 extern pure def getDocumentBody(): Node =
   jsWeb "(document.body)" // defensive parens are sometimes useful
-
 val documentBody: Node = getDocumentBody()
+
 
 extern io def createElement(tag: String): Node =
   jsWeb "document.createElement(${tag})"
@@ -38,12 +36,20 @@ extern io def createTextNode(text: String): Node =
 extern io def appendChild(node: Node, child: Node): Node =
   jsWeb "${node}.appendChild(${child})"
 
+
 extern io def setAttribute(node: Node, key: String, value: String): Node =
   jsWeb "(function() { ${node}.setAttribute(${key}, ${value}); return ${node} })()"
+extern io def removeAttribute(node: Node, key: String): Node =
+  jsWeb "(function() { ${node}.removeAttribute(${key}); return ${node} })()"
 extern io def setStyle(node: Node, key: String, value: String): Node =
   jsWeb "(function() { ${node}.style[${key}] = ${value}; return ${node} })()"
+
+
 extern io def innerHTML(node: Node, contents: String): Node =
   jsWeb "(function() { ${node}.innerHTML = ${contents}; return ${node}; })()"
+  
+def clear(node: Node) = node.innerHTML("")
+
 
 extern io def getChildren(node: Node): Array[Node] =
   jsWeb "${node}.children"
@@ -51,22 +57,22 @@ extern io def getID(node: Node): String =
   jsWeb "${node}.id"
 extern io def getValue(node: Node): String =
   jsWeb "${node}.value"
+extern io def getAttribute(node: Node, key: String): String =
+  jsWeb "${node}.getAttribute(${key})"
 extern io def getStyleValue(node: Node, key: String): String =
   jsWeb "${node}.style[${key}]"
-  
-def clear(node: Node) = node.innerHTML("")
+
 
 extern type IdleDeadline
-
 extern io def requestIdleCallback(callback: (IdleDeadline) => Unit at {io, global, async}): Unit =
   jsWeb "window.requestIdleCallback(deadline => $effekt.runToplevel((ks, k) => ${callback}(deadline, ks, k)))"
 
 extern io def onClick(node: Node, handler: () => Unit at {io, global, async}): Unit =
   jsWeb "${node}.addEventListener('click', () => $effekt.runToplevel((ks, k) => ${handler}(ks, k)))"
-
+extern io def onChange(node: Node, handler: () => Unit at {io, global, async}): Unit =
+  jsWeb "${node}.addEventListener('change', () => $effekt.runToplevel((ks, k) => ${handler}(ks, k)))"
 extern io def onMouseEnter(node: Node, handler: () => Unit at {io, global, async}): Unit =
   jsWeb "${node}.addEventListener('mouseenter', () => $effekt.runToplevel((ks, k) => ${handler}(ks, k)))"
-
 extern io def onMouseLeave(node: Node, handler: () => Unit at {io, global, async}): Unit =
   jsWeb "${node}.addEventListener('mouseleave', () => $effekt.runToplevel((ks, k) => ${handler}(ks, k)))"
 
@@ -78,14 +84,12 @@ extern async def fetch(endpoint: String): String =
         .then(r => r.json())
         .then(result => callback(JSON.stringify(result)))
     )"""
-
 extern async def post(endpoint: String): String =
   jsWeb """$effekt.capture(callback => 
     fetch(window.location.origin + ${endpoint}, { method: 'POST' })
       .then(r => r.json())
       .then(result => callback(JSON.stringify(result)))
   )"""
-
 extern async def post(endpoint: String, data: String): String =
   jsWeb """$effekt.capture(callback => 
     fetch(window.location.origin + ${endpoint}, {
@@ -99,6 +103,9 @@ extern async def post(endpoint: String, data: String): String =
       .then(result => callback(JSON.stringify(result)))
   )"""
 
+
+extern io def addTitle(title: String): Unit =
+  jsWeb "document.title = ${title}"
 extern async def addScriptToBody(src: String): Unit =
   jsWeb """$effekt.capture(callback => {
     const script = document.createElement('script');
@@ -108,29 +115,11 @@ extern async def addScriptToBody(src: String): Unit =
     document.body.appendChild(script);
   })"""
 
-extern pure def getCount(json: String): Int =
-  jsWeb """(data => {
-      return data.count;
-    })(${json})"""
-
     
-
-// print to the browser console
 extern io def consoleLog[T](msg: T): Unit =
   jsWeb "console.log(${msg})"
 extern io def consoleError[T](msg: T): Unit =
   jsWeb "console.error(${msg})"
 extern io def alert[T](msg: T): Unit =
   jsWeb "window.alert(${msg})"
-
-extern async def addScriptToHead(src: String): Unit =
-  jsWeb """$effekt.capture(callback => {
-    const script = document.createElement('script');
-    script.src = ${src};
-    script.type = 'text/javascript';
-    script.async = true;
-    document.head.appendChild(script);
-    script.onload = () => callback();
-    script.onerror = () => console.error('Failed to load script:', ${src});
-  })"""
 

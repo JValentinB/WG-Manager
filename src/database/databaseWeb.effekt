@@ -19,11 +19,9 @@ import src/database/data
 //   - schedule (how often it should be done)
 //   - last time it was done
 //   - assigned flatmates
-//   - flatmate next in turn
 // - a common consumable
 //   - name
 //   - description
-//   - assigned flatmates
 //   - how many times each flatmate has bought it
 //   - urgency (0 for not urgent, 1 for should be bought/done soon, 2 for needs to be bought immediately)
 // --------------------------------------------------------------------------------
@@ -123,45 +121,6 @@ extern async def isEntryAvailable(db: Database, query: String, name: String): Bo
 
 
 
-def createFlatmateTable(db: Database): Unit = {
-  val query = """
-    CREATE TABLE IF NOT EXISTS flatmates (
-      id INTEGER PRIMARY KEY,
-      name TEXT
-      color TEXT
-    )
-  """
-  db.createTable(query)
-}
-def createTaskTable(db: Database): Unit = {
-  val query = """
-    CREATE TABLE IF NOT EXISTS tasks (
-      id INTEGER PRIMARY KEY,
-      name TEXT,
-      description TEXT,
-      schedule TEXT,
-      last_done TEXT,
-      assigned_flatmates TEXT,
-      next_in_turn TEXT
-    )
-  """
-  db.createTable(query)
-}
-def createConsumableTable(db: Database): Unit = {
-  val query = """
-    CREATE TABLE IF NOT EXISTS consumables (
-      id INTEGER PRIMARY KEY,
-      name TEXT,
-      description TEXT,
-      assigned_flatmates TEXT,
-      count TEXT,
-      urgency TEXT
-    )
-  """
-  db.createTable(query)
-}
-
-
 interface FlatmateHandler {
   def flatmateInDatabase(name: String): Bool
   def flatmateNotInDatabase(name: String): Bool
@@ -214,7 +173,7 @@ def getFlatmates(db: Database): List[Flatmate] = {
   flatmates
 }
 def getTasks(db: Database): List[Task] = {
-  val query = "SELECT name, description, schedule, last_done, assigned_flatmates, next_in_turn FROM tasks"
+  val query = "SELECT name, description, schedule, last_done, assigned_flatmates FROM tasks"
   val arr = db.readData(query)
 
   var tasks = empty[Task]()
@@ -226,7 +185,7 @@ def getTasks(db: Database): List[Task] = {
   tasks
 }
 def getConsumables(db: Database): List[Consumable] = {
-  val query = "SELECT name, description, assigned_flatmates, count, urgency FROM consumables"
+  val query = "SELECT name, description, count, urgency FROM consumables"
   val arr = db.readData(query)
 
   var consumables = empty[Consumable]()
@@ -276,10 +235,10 @@ def getFlatmateByName(db: Database, name: String): Flatmate = {
 def getTaskByName(db: Database, name: String): Task = {
   try {
     if(isTaskInDatabase(db, name)){
-      val query = "SELECT name, description, schedule, last_done, assigned_flatmates, next_in_turn FROM tasks WHERE name = ?"
+      val query = "SELECT name, description, schedule, last_done, assigned_flatmates FROM tasks WHERE name = ?"
       db.readDataWithParams(query, name).toList().toTask()
     } else {
-      Task("Not in database", "No description", 0, 0, [""], "")
+      Task("Not in database", "No description", 0, 0, [""])
     }
   } with TaskHandler {
     def taskInDatabase(name: String) = {
@@ -294,10 +253,10 @@ def getTaskByName(db: Database, name: String): Task = {
 def getConsumableByName(db: Database, name: String): Consumable = {
   try {
     if(isConsumableInDatabase(db, name)){
-      val query = "SELECT name, description, assigned_flatmates, count, urgency FROM consumables WHERE name = ?"
+      val query = "SELECT name, description, count, urgency FROM consumables WHERE name = ?"
       db.readDataWithParams(query, name).toList().toConsumable()
     } else {
-      Consumable("Not in database", "No description", [""], [("", 0)], 0)
+      Consumable("Not in database", "No description", [("", 0)], 0)
     }
   } with ConsumableHandler {
     def consumableInDatabase(name: String) = {

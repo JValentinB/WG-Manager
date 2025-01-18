@@ -8,17 +8,21 @@ import ref
 import string
 
 
-record Application[St, Ev](
-  update: Ev => Unit / State[St] at {io, global, async},
-  view: () => HtmlElement[St, Ev] / State[St] at {io, global, async}
+record Application[Ev](
+  update: Ev => Unit at {io, global, async},
+  view: () => HtmlElement[Ev] at {io, global, async}
 )
 
-record HtmlElement[St, Ev] (
+record Action(
+  f: () => Unit at {io, global, async}
+)
+
+record HtmlElement[Ev] (
   node: Node,
   tag: String,
   text: String, 
-  app: Option[Application[St, Ev]],
-  children: List[HtmlElement[St, Ev]], 
+  app: Option[Application[Ev]],
+  children: List[HtmlElement[Ev]], 
   attributes: List[Attribute],
   handlers: List[EventHandler[Ev]]
 )
@@ -30,30 +34,31 @@ record Attribute (
 
 type EventHandler[Ev] { 
   OnClick(handler: Ev);
-  OnChange(handler: (String) => Ev at {});
+  OnChange(handler: Ev);
+  
   OnMouseEnter(handler: Ev);
   OnMouseLeave(handler: Ev)
 }
 
-// effect addingChild[St, Ev](child: HtmlElement[St, Ev]): Unit
+// effect addingChild[Ev](child: HtmlElement[Ev]): Unit
 
-def button[St, Ev](text: String, children: List[HtmlElement[St, Ev]], attributes: List[Attribute], handlers: List[EventHandler[Ev]], app: Option[Application[St, Ev]]) =
+def button[Ev](text: String, children: List[HtmlElement[Ev]], attributes: List[Attribute], handlers: List[EventHandler[Ev]], app: Option[Application[Ev]]) =
   HtmlElement(createElement("button"), "button", text, app, children, attributes, handlers)
 
-def div[St, Ev](text: String, children: List[HtmlElement[St, Ev]], attributes: List[Attribute], handlers: List[EventHandler[Ev]], app: Option[Application[St, Ev]]) =
+def div[Ev](text: String, children: List[HtmlElement[Ev]], attributes: List[Attribute], handlers: List[EventHandler[Ev]], app: Option[Application[Ev]]) =
   HtmlElement(createElement("div"), "div", text, app, children, attributes, handlers)
 
-def input[St, Ev](text: String, children: List[HtmlElement[St, Ev]], attributes: List[Attribute], handlers: List[EventHandler[Ev]], app: Option[Application[St, Ev]]) =
+def input[Ev](text: String, children: List[HtmlElement[Ev]], attributes: List[Attribute], handlers: List[EventHandler[Ev]], app: Option[Application[Ev]]) =
   HtmlElement(createElement("input"), "input", text, app, children, attributes, handlers)
 
 
 
-def appendChild[St, Ev](parent: HtmlElement[St, Ev], child: HtmlElement[St, Ev]): Unit = {
+def appendChild[Ev](parent: HtmlElement[Ev], child: HtmlElement[Ev]): Unit = {
   parent.children.append([child])
   ()
 }
 
-def addHandlers[St, Ev](element: HtmlElement[St, Ev], handlers: List[EventHandler[Ev]]): HtmlElement[St, Ev] = {
+def addHandlers[Ev](element: HtmlElement[Ev], handlers: List[EventHandler[Ev]]): HtmlElement[Ev] = {
   val newHandlers = element.handlers.append(handlers)
   val newElement = HtmlElement(element.node, element.tag, element.text, element.app, element.children, element.attributes, newHandlers)
   newElement
@@ -147,6 +152,22 @@ def checkResponse(response: String): Unit / ServerMessage = {
     do error(value)
   } else {
     do error("Something went wrong")
+  }
+}
+
+def handleServerResponse(response: String) {f: () => Unit}: Unit = {
+  try {
+    checkResponse(response)
+  } with ServerMessage {
+    def success() = {
+      f()
+      resume(())
+    }
+    def error(msg: String) = {
+      consoleError(msg)
+      alert(msg)
+      resume(())
+    }
   }
 }
 

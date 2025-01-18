@@ -6,6 +6,7 @@ import io/filesystem
 import option
 
 import src/database/data
+import src/utils/misc
 
 
 // --------------------------------------------------------------------------------
@@ -17,12 +18,10 @@ import src/database/data
 //   - description
 //   - schedule (how often it should be done)
 //   - last time it was done
-//   - assigned flatmates
-//   - flatmates next in turn
+//   - assigned flatmates in order of turn
 // - a common consumable
 //   - name
 //   - description
-//   - assigned flatmates
 //   - how many times each flatmate has bought it
 //   - urgency (0 for not urgent, 1 for should be bought/done soon, 2 for needs to be bought immediately)
 // --------------------------------------------------------------------------------
@@ -137,8 +136,7 @@ def createTaskTable(db: Database): Unit = {
       description TEXT,
       schedule TEXT,
       last_done TEXT,
-      assigned_flatmates TEXT,
-      next_in_turn TEXT
+      assigned_flatmates TEXT
     )
   """
   db.createTable(query)
@@ -149,7 +147,6 @@ def createConsumableTable(db: Database): Unit = {
       id INTEGER PRIMARY KEY,
       name TEXT,
       description TEXT,
-      assigned_flatmates TEXT, 
       count TEXT,
       urgency TEXT
     )
@@ -211,8 +208,8 @@ def insertFlatmate(db: Database, name: String): Unit / DatabaseMessage = {
       resume(true)
     }
     def flatmateNotInDatabase(name: String) = {
-      val maxId = db.getTableLength("flatmates")
-      val color = colorPalette(maxId)
+      val usedColors = db.getFlatmateColors()
+      val color = colorPalette(usedColors)
 
       val query = "INSERT INTO flatmates (name, color) VALUES (?, ?)"
       db.executeQuery(query, [name, color].fromList())
@@ -221,13 +218,23 @@ def insertFlatmate(db: Database, name: String): Unit / DatabaseMessage = {
       val tasks = db.getTasks()
       tasks.foreach { task =>
         val updatedTask = task.assignFlatmate(name)
-        db.updateTask(updatedTask)
+        try {
+          db.updateTask(task.name, updatedTask)
+        } with DatabaseMessage {
+          def clear() = ()
+          def warning(message: String) = println(message)
+        }
       }
 
       val consumables = db.getConsumables()
       consumables.foreach { consumable =>
         val updatedConsumable = consumable.assignFlatmate(name)
-        db.updateConsumable(updatedConsumable)
+        try {
+          db.updateConsumable(consumable.name, updatedConsumable)
+        } with DatabaseMessage {
+          def clear() = ()
+          def warning(message: String) = println(message)
+        }
       } 
       do clear()
       resume(false)
@@ -245,7 +252,7 @@ def insertTask(db: Database, task: Task): Unit / DatabaseMessage = {
     }
     def taskNotInDatabase(name: String) = {
       val query = """
-        INSERT INTO tasks (name, description, schedule, last_done, assigned_flatmates, next_in_turn) VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO tasks (name, description, schedule, last_done, assigned_flatmates) VALUES (?, ?, ?, ?, ?)
       """
       db.executeQuery(query, task.toListOfStrings().fromList())
       do clear()
@@ -264,7 +271,7 @@ def insertConsumable(db: Database, consumable: Consumable): Unit / DatabaseMessa
     }
     def consumableNotInDatabase(name: String) = {
       val query = """
-        INSERT INTO consumables (name, description, assigned_flatmates, count, urgency) VALUES (?, ?, ?, ?, ?)
+        INSERT INTO consumables (name, description, count, urgency) VALUES (?, ?, ?, ?)
       """
       db.executeQuery(query, consumable.toListOfStrings().fromList())
       do clear()
@@ -273,54 +280,79 @@ def insertConsumable(db: Database, consumable: Consumable): Unit / DatabaseMessa
   }
 }
 
-def updateFlatmate(db: Database, flatmate: Flatmate): Unit = {
+def updateFlatmate(db: Database, oldName: String,flatmate: Flatmate): Unit / DatabaseMessage = {
   try {
-    isFlatmateInDatabase(db, flatmate.name)
+    isFlatmateInDatabase(db, oldName)
     ()
   } with FlatmateHandler {
     def flatmateInDatabase(name: String) = {
       val query = "UPDATE flatmates SET name = ?, color = ? WHERE name = ?"
-      db.executeQuery(query, [flatmate.name, flatmate.color, flatmate.name].fromList())
+      db.executeQuery(query, [flatmate.name, flatmate.color, oldName].fromList())
+
+      val tasks = db.getTasks()
+      tasks.foreach { task =>
+        var updatedTask = task.renameFlatmate(oldName, flatmate.name)
+        try {
+          db.updateTask(task.name, updatedTask)
+        } with DatabaseMessage {
+          def clear() = ()
+          def warning(message: String) = ()
+        }
+      }
+
+      val consumables = db.getConsumables()
+      consumables.foreach { consumable =>
+        var updatedConsumable = consumable.renameFlatmate(oldName, flatmate.name)
+        try {
+          db.updateConsumable(consumable.name, updatedConsumable)
+        } with DatabaseMessage {
+          def clear() = ()
+          def warning(message: String) = println(message)
+        }
+      }
+      do clear()
       resume(true)
     }
     def flatmateNotInDatabase(name: String) = {
-      println("Flatmate " ++ name ++ " not in database.")
+      do warning("Flatmate " ++ name ++ " not in database.")
       resume(false)
     }
   }
 }
-def updateTask(db: Database, task: Task): Unit = {
+def updateTask(db: Database, oldName: String, task: Task): Unit / DatabaseMessage = {
   try {
-    isTaskInDatabase(db, task.name)
+    isTaskInDatabase(db, oldName)
     ()
   } with TaskHandler {
     def taskInDatabase(name: String) = {
       val query = """
-        UPDATE tasks SET name = ?, description = ?, schedule = ?, last_done = ?, assigned_flatmates = ?, next_in_turn = ? WHERE name = ?
+        UPDATE tasks SET name = ?, description = ?, schedule = ?, last_done = ?, assigned_flatmates = ? WHERE name = ?
       """
-      db.executeQuery(query, task.toListOfStrings().append([task.name]).fromList())
+      db.executeQuery(query, task.toListOfStrings().append([oldName]).fromList())
+      do clear()
       resume(true)
     }
     def taskNotInDatabase(name: String) = {
-      println("Task " ++ name ++ " not in database.")
+      do warning("Task " ++ name ++ " not in database.")
       resume(false)
     }
   }
 }
-def updateConsumable(db: Database, consumable: Consumable): Unit = {
+def updateConsumable(db: Database, oldName: String, consumable: Consumable): Unit / DatabaseMessage = {
   try {
-    isConsumableInDatabase(db, consumable.name)
+    isConsumableInDatabase(db, oldName)
     ()
   } with ConsumableHandler {
     def consumableInDatabase(name: String) = {
       val query = """
-        UPDATE consumables SET name = ?, description = ?, assigned_flatmates = ?, count = ?, urgency = ? WHERE name = ?
+        UPDATE consumables SET name = ?, description = ?, count = ?, urgency = ? WHERE name = ?
       """
-      db.executeQuery(query, consumable.toListOfStrings().append([consumable.name]).fromList())
+      db.executeQuery(query, consumable.toListOfStrings().append([oldName]).fromList())
+      do clear()
       resume(true)
     }
     def consumableNotInDatabase(name: String) = {
-      println("Consumable " ++ name ++ " not in database.")
+      do warning("Consumable " ++ name ++ " not in database.")
       resume(false)
     }
   }
@@ -335,14 +367,24 @@ def deleteFlatmate(db: Database, name: String): Unit = {
   val tasks = db.getTasks()
   tasks.foreach { task =>
     val updatedTask = task.unassignFlatmate(name)
-    db.updateTask(updatedTask)
+    try {
+      db.updateTask(task.name, updatedTask)
+    } with DatabaseMessage {
+      def clear() = ()
+      def warning(message: String) = println(message)
+    }
   }
 
   val consumables = db.getConsumables()
   consumables.foreach { consumable =>
     val updatedConsumable = consumable.unassignFlatmate(name)
     printConsumable(updatedConsumable)
-    db.updateConsumable(updatedConsumable)
+    try {
+      db.updateConsumable(consumable.name, updatedConsumable)
+    } with DatabaseMessage {
+      def clear() = ()
+      def warning(message: String) = println(message)
+    }
   }
 }
 def deleteTask(db: Database, name: String): Unit = {
@@ -368,24 +410,24 @@ def getFlatmates(db: Database): List[Flatmate] = {
   flatmates
 }
 def getTasks(db: Database): List[Task] = {
-  val query = "SELECT name, description, schedule, last_done, assigned_flatmates, next_in_turn FROM tasks"
+  val query = "SELECT name, description, schedule, last_done, assigned_flatmates FROM tasks"
   val arr = db.readData(query)
 
   var tasks = empty[Task]()
   arr.foreach { row =>
-    val task = toTask(row.toList())
+    val task = row.toList().toTask()
     tasks = tasks.append([task])
     ()
   }
   tasks
 }
 def getConsumables(db: Database): List[Consumable] = {
-  val query = "SELECT name, description, assigned_flatmates, count, urgency FROM consumables"
+  val query = "SELECT name, description, count, urgency FROM consumables"
   val arr = db.readData(query)
 
   var consumables = empty[Consumable]()
   arr.foreach { row =>
-    consumables = consumables.append([toConsumable(row.toList())])
+    consumables = consumables.append([row.toList().toConsumable()])
     ()
   }
   consumables
@@ -405,6 +447,21 @@ def getFlatmateNames(db: Database): List[String] = {
     ()
   }
   names
+}
+def getFlatmateColors(db: Database): List[String] = {
+  val query = "SELECT color FROM flatmates"
+  val arr = db.readData(query)
+
+  var colors = empty[String]()
+  arr.foreach { row =>
+    val list = row.toList()
+    list match {
+      case Cons(color, _) => colors = colors.append([color])
+      case _ => ()
+    }
+    ()
+  }
+  colors
 }
 
 // Functions to retrieve single entries
@@ -430,10 +487,10 @@ def getFlatmateByName(db: Database, name: String): Flatmate = {
 def getTaskByName(db: Database, name: String): Task = {
   try {
     if(isTaskInDatabase(db, name)){
-      val query = "SELECT name, description, schedule, last_done, assigned_flatmates, next_in_turn FROM tasks WHERE name = ?"
+      val query = "SELECT name, description, schedule, last_done, assigned_flatmates FROM tasks WHERE name = ?"
       db.readDataWithParams(query, name).toList().toTask()
     } else {
-      Task("Not in database", "No description", 0, 0, [""], "")
+      Task("Not in database", "No description", 0, 0, [""])
     }
   } with TaskHandler {
     def taskInDatabase(name: String) = {
@@ -448,10 +505,10 @@ def getTaskByName(db: Database, name: String): Task = {
 def getConsumableByName(db: Database, name: String): Consumable = {
   try {
     if(isConsumableInDatabase(db, name)){
-      val query = "SELECT name, description, assigned_flatmates, count, urgency FROM consumables WHERE name = ?"
+      val query = "SELECT name, description, count, urgency FROM consumables WHERE name = ?"
       db.readDataWithParams(query, name).toList().toConsumable()
     } else {
-      Consumable("Not in database", "No description", [""], [("", 0)], 0)
+      Consumable("Not in database", "No description", [("", 0)], 0)
     }
   } with ConsumableHandler {
     def consumableInDatabase(name: String) = {
@@ -488,7 +545,8 @@ def main() = {
   val databasePath = "./data.sqlite"
   val db = openWGManagerDatabase(databasePath)
 
-  db.deleteFlatmate("Peter")
+  // db.deleteFlatmate("Valentin")
+  db.saveDatabase(databasePath)
 
   // println("Database saved")
   

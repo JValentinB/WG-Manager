@@ -61,7 +61,24 @@ extern io def endForDatabaseRequest(res: Response, content: Database): Unit =
   jsNode "${res}.end(Buffer.from(${content}.export()));"
 
 
-
+def handleDatabaseMessage(db: Database, path: String, res: Response) {f: () => Unit / DatabaseMessage}: Unit = {
+  try {
+    f()
+  } with DatabaseMessage {
+    def clear() = {
+      db.saveDatabase(path)
+      println("Database saved")
+      writeHead(res, 200, "application/json")
+      end(res, """{"success":true}""")
+      resume(())
+    }
+    def warning(msg: String) = {
+      writeHead(res, 400, "application/json")
+      end(res, "{\"error\":\"" ++ msg ++ "\"}")
+      resume(())
+    }
+  }
+}
 
 // Handling network requests
 def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request, res: Response): Unit = {
@@ -73,11 +90,6 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
     case Cons(path, _) => path
     case _ => ""
   }
-  // val arg = url match {
-  //   case Cons(_, Cons(arg, _)) => arg
-  //   case _ => ""
-  // }
-  // println(method ++ " " ++ path ++ " " ++ show(arg))
   println(method ++ " " ++ path)
 
   (method, path) match {
@@ -87,10 +99,6 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
       writeHead(res, 200, "text/html")
       end(res, htmlContent)
     }
-    // case ("GET", "count") => {
-    //   writeHead(res, 200, "application/json")
-    //   end(res, """{"count":""" ++ show(counter.get()) ++ "}")
-    // }
     case ("GET", "database") => {
       with on[IOError].panic;
       // val content = readFile("./data.sqlite")
@@ -115,17 +123,7 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
       }
       end(res, content)
     }
-    // case ("POST", "change") => {
-    //   val n = arg.unsafeToInt()
-    //   counter.set(counter.get() + n)
-    //   writeHead(res, 200, "application/json")
-    //   end(res, """{"count":""" ++ show(counter.get()) ++ "}")
-    // }
-    // case ("POST", "reset") => {
-    //   counter.set(0)
-    //   writeHead(res, 200, "application/json")
-    //   end(res, """{"count":""" ++ show(counter.get()) ++ "}")
-    // }
+
     case ("POST", "addTask") => {
       val name = body.getJsonValue("name")
       val description = body.getJsonValue("description")
@@ -137,26 +135,10 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
       } else {
         val currentTimestamp = getCurrentTime()
         val names = db.getFlatmateNames()
-        val firstName = names match {
-          case Cons(name, _) => name
-          case _ => ""
-        }
-      
-        try {
-          val task = Task(name, description, schedule, currentTimestamp, names, firstName)  
+        val task = Task(name, description, schedule, currentTimestamp, names)  
+
+        handleDatabaseMessage(db, dbPath, res) {
           db.insertTask(task)
-        } with DatabaseMessage {
-          def clear() = {
-            db.saveDatabase(dbPath)
-            writeHead(res, 200, "application/json")
-            end(res, """{"success":true}""")
-            resume(())   
-          }
-          def warning(msg: String) = {
-            writeHead(res, 400, "application/json")
-            end(res, "{\"error\":\"" ++ msg ++ "\"}")
-            resume(())
-          }
         }
       }
     }
@@ -171,22 +153,10 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
         val currentTimestamp = getCurrentTime()
         val names = db.getFlatmateNames()
         val emptyCount = names.emptyCountList()
+        val consumable = Consumable(name, description, emptyCount, 0)
 
-        try {
-          val consumable = Consumable(name, description, names, emptyCount, 0)
-          db.insertConsumable(consumable)
-        } with DatabaseMessage {
-          def clear() = {
-            db.saveDatabase(dbPath)
-            writeHead(res, 200, "application/json")
-            end(res, """{"success":true}""")
-            resume(())   
-          }
-          def warning(msg: String) = {
-            writeHead(res, 400, "application/json")
-            end(res, "{\"error\":\"" ++ msg ++ "\"}")
-            resume(())
-          }
+        handleDatabaseMessage(db, dbPath, res) {
+          db.insertConsumable(consumable)  
         }
       }
     }
@@ -197,20 +167,30 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
         end(res, """{"error":"Name is required"}""")
         ()
       } else {
-        try {
+        handleDatabaseMessage(db, dbPath, res) {
           db.insertFlatmate(name)
-        } with DatabaseMessage { 
-          def clear() = {
-            db.saveDatabase(dbPath)
-            writeHead(res, 200, "application/json")
-            end(res, """{"success":true}""")
-            resume(())
-          }
-          def warning(msg: String) = {
-            writeHead(res, 400, "application/json")
-            end(res, "{\"error\":\"" ++ msg ++ "\"}")
-            resume(())
-          }
+        }
+      }
+    }
+
+    case ("POST", "updateTask") => {
+      ()
+    }
+    case ("POST", "updateConsumable") => {
+      ()
+    }
+    case ("POST", "updateFlatmate") => {
+      val oldName = body.getJsonValue("oldName")
+      val newName = body.getJsonValue("newName")
+      val color = body.getJsonValue("color")
+
+      if (oldName == "" || newName == "") {
+        writeHead(res, 400, "application/json")
+        end(res, """{"error":"Name is required"}""")
+      } else {
+        handleDatabaseMessage(db, dbPath, res) {
+          val newFlatmate = Flatmate(newName, color)
+          db.updateFlatmate(oldName, newFlatmate)
         }
       }
     }

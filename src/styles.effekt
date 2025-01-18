@@ -20,7 +20,7 @@ def styles(id: String): String = {
       display: flex;
       width: 100%;
       height: 100%;
-      max-width: 800px;
+      max-width: 950px;
       color: white;
       background: """ ++ darkGrey ++ """;
     """
@@ -34,14 +34,18 @@ def styles(id: String): String = {
       background: """ ++ lightGrey ++ """;
     """
     case "addButton" => """
-      width: 100%;
-      height: 50px;
-      background-color: transparent;
-      display: block;
+      position: relative;
+      display: flex;
       justify-content: center;
       align-items: center;
-      border: 3px dashed #ccc;
-      font-size: 30px;
+      width: 100%;
+      height: 100px;
+      padding: 0;
+
+      background-color: transparent;
+      border: 5px dashed #ccc;
+      font-size: 100px;
+      line-height: normal;
       color: #ccc;
       cursor: pointer;
     """
@@ -61,25 +65,25 @@ def styles(id: String): String = {
       border-top: 5px solid """ ++ darkGrey ++ """;
     """
     case "button" => """
-      height: 50px;
+      height: 100px;
       background-color: transparent;
       display: flex;
       justify-content: center;
       align-items: center;
-      border: 1px solid #ccc;
-      font-size: 30px;
+      border: 3px solid #ccc;
+      font-size: 60px;
       color: #ccc;
       cursor: pointer;
     """
     case "groupButton" => """
       flex-grow: 1;
-      height: 50px;
+      height: 100px;
       background-color: transparent;
       display: flex;
       justify-content: center;
       align-items: center;
-      border: 1px solid #ccc;
-      font-size: 30px;
+      border: 3px solid #ccc;
+      font-size: 60px;
       color: #ccc;
       cursor: pointer;
     """
@@ -91,9 +95,17 @@ def styles(id: String): String = {
       width: 100%;
       height: 100%;
     """
+    case "buttonGroupVertical" => """
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+    """
     case "textInput" => """
       width: 90%;
-      height: 50px;
+      height: 100px;
       padding: 0;
       padding-left: 5%;
       padding-right: 5%;
@@ -104,7 +116,7 @@ def styles(id: String): String = {
       border: None;
       border-top: 5px solid """ ++ darkGrey ++ """;
       border-bottom: 5px solid """ ++ darkGrey ++ """;
-      font-size: 30px;
+      font-size: 60px;
       color: black;
     """
     case "wrapper" => """
@@ -127,16 +139,17 @@ def styles(id: String): String = {
 }
 
 def stylesNavBar(id: String): String = {
+  val color = colorPalette()
   id match {
     case "navBar" => """
       display: block; 
       width: 100%;
-      height: 60px;
+      height: 100px;
       background: """ ++ lightGrey ++ """;
       color: white;
       border-bottom: 5px solid """ ++ darkGrey ++ """;
     """
-    case "navButton" => """
+    case "navButtonInactive" => """
       position: relative;
       left: 0px;
       width: 33.33%;
@@ -153,9 +166,8 @@ def stylesNavBar(id: String): String = {
       left: 0px;
       width: 33.33%;
       height: 100%;
-      background: transparent;
+      background: """ ++ color ++ """;
       border: none;
-      border-top: 3px solid white;
       padding: 0;
       color: white;
       cursor: pointer;
@@ -174,9 +186,9 @@ def stylesSection(id: String): String = {
       flex-wrap: nowrap;
       justify-content: flex-start; 
       align-items: center;
-      gap: 20px;
+      gap: 100px;
       width: 100%;
-      height: 190px;
+      height: 500px;
       overflow-y: hidden;
       overflow-x: auto;
     """
@@ -203,12 +215,12 @@ def stylesSection(id: String): String = {
     case "title" => """
       display: flex;
       width: 100%;
-      height: 35px;
+      height: 80px;
       background-color: transparent;
       justify-content: center;
       align-items: center;
       text-align: center;
-      font-size: 20px;
+      font-size: 50px;
       color: #ccc;
     """
     case "editMenu" => """
@@ -219,6 +231,101 @@ def stylesSection(id: String): String = {
       width: 100%;
       height: 100%;
     """
+    case "cardTextInput" => """
+      display: inline-block; 
+      width: 200px;
+      height: 54px;
+      color: white;
+      background: transparent;
+      border: None;
+      font-size: 50px;
+      text-align: center;
+    """
+    case "cardTextInputEnabled" => """
+      display: inline-block; 
+      width: 200px;
+      height: 54px;
+      color: black;
+      background: white;
+      border: None;
+      border-radius: 5px;
+      font-size: 50px;
+      text-align: center;
+    """
+    case "cardButton" => """
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-grow: 1;
+      height: 120px;
+
+      background-color: transparent;
+      border: none;
+      font-size: 60px;
+      color: #ccc;
+      cursor: pointer;
+    """
+    case "cardButtonVertical" => """
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-grow: 1;
+      width: 120px;
+
+      background-color: transparent;
+      border: none;
+      font-size: 60px;
+      color: #ccc;
+      cursor: pointer;
+    """
+    case "topButtonGroup" => """
+      display: block;
+      position: absolute;
+      width: 100%;
+      top: 0;
+      left: 0;
+      transform: translateZ(-10px);
+      background: transparent;
+      border-radius: 15px;
+      box-shadow: inset 0 0 0 4px white;
+      transition: all 0.2s ease-in-out;
+    """
+    case "bottomButtonGroup" => """
+      display: block;
+      position: absolute;
+      width: 100%;
+      bottom: 0;
+      left: 0;
+      transform: translateZ(-10px);
+      background: transparent;
+      border-radius: 15px;
+      box-shadow: inset 0 0 0 4px white;
+      transition: all 0.2s ease-in-out;
+    """
+    case "rightButtonGroup" => """
+      display: block;
+      position: absolute;
+      height: 100%;
+      right: 0;
+      top: 0;
+      transform: translateZ(-10px);
+      background: transparent;
+      border-radius: 15px;
+      box-shadow: inset 0 0 0 4px white;
+      transition: all 0.2s ease-in-out;
+    """
+    case "leftButtonGroup" => """
+      display: block;
+      position: absolute;
+      height: 100%;
+      left: 0;
+      top: 0;
+      transform: translateZ(-10px);
+      background: transparent;
+      border-radius: 15px;
+      box-shadow: inset 0 0 0 4px white;
+      transition: all 0.2s ease-in-out;
+    """
     case _ => {
       consoleLog("unknown id: " ++ id)
       ""
@@ -227,26 +334,30 @@ def stylesSection(id: String): String = {
 }
 
 def styleCard(color: String, scale: Double): String = {
-  val width = (125.0 * scale).toInt
-  val height = (150.0 * scale).toInt
+  val width = (250.0 * scale).toInt
+  val height = (250.0 * scale).toInt
 
-  var border = "border: None;"
+  var outline = 4
   if (scale > 1.0) {
-    border = "border: 2px solid white;"
+    outline = 10
   }
   """
-    width: """ ++ show(width) ++ """px;
-    height: """ ++ show(height) ++ """px;
-    background-color: """ ++ color ++ """;
-    margin: 10px;
     display: flex;
+    position: relative;
+    transform-style: preserve-3d;
     justify-content: center;
     align-items: center;
-    border-radius: 5px;
-    font-size: 25px;
+    width: """ ++ show(width) ++ """px;
+    height: """ ++ show(height) ++ """px;
+    margin: 20px;
+
+    background-color: """ ++ color ++ """;
+    border-radius: 15px;
+    outline: """ ++ show(outline) ++ """px solid """ ++ color ++ """;
+    font-size: 50px;
     flex-shrink: 0;
     cursor: pointer;
-  """ ++ border
+  """
 }
 
 def styleApp(): String = {

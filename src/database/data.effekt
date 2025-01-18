@@ -11,29 +11,19 @@ record Flatmate (
   name: String,
   color: String
 )
-
 record Task (
   name: String,
   description: String,
   schedule: Int,
   lastDone: Int,
-  assignedFlatmates: List[String], // List of flatmate names
-  nextInTurn: String
+  assignedFlatmates: List[String] // List of flatmate names in order of turn
 )
-
 record Consumable (
   name: String,
   description: String,
-  assignedFlatmates: List[String],
-  count: List[(String, Int)],
-  urgency: Int
+  count: List[(String, Int)],     // List of (flatmate name, count of consumable bought)
+  urgency: Int                    // 0 = not urgent, 1 = almost empty, 2 = empty
 )
-
-// record ManagerData (
-//   flatmates: List[Flatmate],
-//   tasks: List[Task],
-//   consumables: List[Consumable]
-// )
 
 def toListOfStrings(flatmate: Flatmate): List[String] = [flatmate.name, flatmate.color]
 def toListOfStrings(task: Task): List[String] = {
@@ -42,19 +32,14 @@ def toListOfStrings(task: Task): List[String] = {
     flatmates = flatmates ++ flatmate ++ ","
   }
   
-  [task.name, task.description, show(task.schedule), show(task.lastDone), flatmates, task.nextInTurn]
+  [task.name, task.description, show(task.schedule), show(task.lastDone), flatmates]
 }
 def toListOfStrings(consumable: Consumable): List[String] = {
-  var flatmates = ""
-  consumable.assignedFlatmates.foreach { flatmate =>
-    flatmates = flatmates ++ flatmate ++ ","
-  }
-
   var count_string = ""
   consumable.count.foreach { case (flatmate, count) =>
     count_string = count_string ++ flatmate ++ ":" ++ show(count) ++ ","
   }
-  [consumable.name, consumable.description, flatmates, count_string, show(consumable.urgency)]
+  [consumable.name, consumable.description, count_string, show(consumable.urgency)]
 }
 
 def toFlatmate(list: List[String]): Flatmate = {
@@ -64,61 +49,75 @@ def toFlatmate(list: List[String]): Flatmate = {
   Flatmate(list.get(0), list.get(1))
 }
 def toTask(list: List[String]): Task = {
-  with on[OutOfBounds].default { println("Index out of bounds"); Task("OutOfBounds", "", 0, 0, [], "") };
-  with on[WrongFormat].default { println("Wrong Format"); Task("WrongFormat", "", 0, 0, [], "") };
+  with on[OutOfBounds].default { println("Index out of bounds"); Task("OutOfBounds", "", 0, 0, []) };
+  with on[WrongFormat].default { println("Wrong Format"); Task("WrongFormat", "", 0, 0, []) };
 
   val flatmates = list.get(4).split(",").filter { name => name == "" }
-  Task(list.get(0), list.get(1), list.get(2).toInt, list.get(3).toInt, flatmates, list.get(5))
+  Task(list.get(0), list.get(1), list.get(2).toInt, list.get(3).toInt, flatmates)
 }
 def toConsumable(list: List[String]): Consumable = {
-  with on[OutOfBounds].default { println("Index out of bounds"); Consumable("OutOfBounds", "", [], [], 0) };
-  with on[WrongFormat].default { println("Wrong Format"); Consumable("WrongFormat", "", [], [], 0) };
+  with on[OutOfBounds].default { println("Index out of bounds"); Consumable("OutOfBounds", "", [], 0) };
+  with on[WrongFormat].default { println("Wrong Format"); Consumable("WrongFormat", "", [], 0) };
 
-  val flatmates = list.get(2).split(",").filter { name => name == "" }
-  val count = list.get(3).split(",").filter { entry => entry == ""}.map { entry =>
+  val count = list.get(2).split(",").filter { entry => entry == ""}.map { entry =>
     val split = entry.split(":")
     (split.get(0), split.get(1).toInt)
   }
-  Consumable(list.get(0), list.get(1), flatmates, count, list.get(4).toInt)
+  Consumable(list.get(0), list.get(1), count, list.get(3).toInt)
 }
 
 def assignFlatmate(task: Task, flatmate: String): Task = {
   val assigned = task.assignedFlatmates.append([flatmate])
-  Task(task.name, task.description, task.schedule, task.lastDone, assigned, task.nextInTurn)
+  Task(task.name, task.description, task.schedule, task.lastDone, assigned)
 }
 def unassignFlatmate(task: Task, flatmate: String): Task = {
   val assigned = task.assignedFlatmates.filter { name => name == flatmate }
-  Task(task.name, task.description, task.schedule, task.lastDone, assigned, task.nextInTurn)
+  Task(task.name, task.description, task.schedule, task.lastDone, assigned)
+}
+def renameFlatmate(task: Task, oldFlatmate: String, newFlatmate: String): Task = {
+  val flatmateIndex = task.assignedFlatmates.indexOf(oldFlatmate) { (name1, name2) => name1 == name2 }
+  val assigned = task.assignedFlatmates.updateAt(flatmateIndex) { name => newFlatmate }
+  Task(task.name, task.description, task.schedule, task.lastDone, assigned)
 }
 
 def assignFlatmate(consumable: Consumable, flatmate: String): Consumable = {
-  val assigned = consumable.assignedFlatmates.append([flatmate])
   val count = consumable.count.append([(flatmate, 0)])
-  Consumable(consumable.name, consumable.description, assigned, count, consumable.urgency)
+  Consumable(consumable.name, consumable.description, count, consumable.urgency)
 }
 def unassignFlatmate(consumable: Consumable, flatmate: String): Consumable = {
-  println("Unassigning flatmate: " ++ flatmate)
-  val assigned = consumable.assignedFlatmates.filter { name => name == flatmate }
   val count = consumable.count.filter { entry => entry match { case (name, _) => name == flatmate } }
-  Consumable(consumable.name, consumable.description, assigned, count, consumable.urgency)
+  Consumable(consumable.name, consumable.description, count, consumable.urgency)
+}
+def renameFlatmate(consumable: Consumable, oldFlatmate: String, newFlatmate: String): Consumable = {
+  val countIndex = consumable.count.indexOf(oldFlatmate) { (name1, count) => 
+    count match {
+      case (name2, _) => name1 == name2
+    }
+  }
+  val count = consumable.count.updateAt(countIndex) { entry => 
+    entry match {
+      case (name, count) => (newFlatmate, count)
+    }
+  }
+  Consumable(consumable.name, consumable.description, count, consumable.urgency)
 }
 
 // reorder flatmates starting with the one next in turn
-def reorderFlatmates(flatmates: List[String], nextInTurn: String): List[String] = {
-  // get index of nextInTurn
-  var i = 0
-  var flatmateIndex = 0
-  flatmates.foreach { flatmate =>
-    if (flatmate == nextInTurn) {
-      flatmateIndex = i
-    }
-    i = i + 1
-    ()
-  }
-  val drop = flatmates.drop(flatmateIndex)
-  val take = flatmates.take(flatmateIndex)
-  drop.append(take)
-}
+// def reorderFlatmates(flatmates: List[String], nextInTurn: String): List[String] = {
+//   // get index of nextInTurn
+//   var i = 0
+//   var flatmateIndex = 0
+//   flatmates.foreach { flatmate =>
+//     if (flatmate == nextInTurn) {
+//       flatmateIndex = i
+//     }
+//     i = i + 1
+//     ()
+//   }
+//   val drop = flatmates.drop(flatmateIndex)
+//   val take = flatmates.take(flatmateIndex)
+//   drop.append(take)
+// }
 
 def nextTimeToBeDone(task: Task): String = {
   val nextTime = task.lastDone.addDays(task.schedule)
@@ -126,9 +125,6 @@ def nextTimeToBeDone(task: Task): String = {
 }
 
 def emptyCountList(flatmates: List[String]): List[(String, Int)] = flatmates.map { flatmate => (flatmate, 0) }
-
-
-
 
 
 
@@ -146,17 +142,11 @@ def printTask(task: Task): Unit = {
   "Description: " ++ task.description ++ "\n" ++
   "Schedule: " ++ show(task.schedule) ++ "\n" ++
   "Last time done: " ++ show(task.lastDone) ++ "\n" ++
-  "Assigned flatmates: " ++ flatmates ++ "\n" ++
-  "Flatmate next in turn: " ++ task.nextInTurn ++ "\n";
+  "Assigned flatmates: " ++ flatmates ++ "\n";
 
   println(string)
 }
 def printConsumable(consumable: Consumable): Unit = {
-  var flatmates = ""
-  consumable.assignedFlatmates.foreach { flatmate =>
-    flatmates = flatmates ++ flatmate ++ ", "
-  }
-
   var count_string = ""
   consumable.count.foreach { case (flatmate, count) =>
     count_string = count_string ++ flatmate ++ ": " ++ show(count) ++ ", "
@@ -165,26 +155,7 @@ def printConsumable(consumable: Consumable): Unit = {
   val string = "Consumable: " ++ consumable.name ++ "\n" ++
   "Description: " ++ consumable.description ++ "\n" ++
   "Urgency: " ++ show(consumable.urgency) ++ "\n" ++
-  "Assigned flatmates: " ++ flatmates ++ "\n" ++
   "Flatmate bought count: " ++ count_string ++ "\n";
 
   println(string)
-}
-
-
-def colorPalette(id: Int): String = {
-  val x = id.mod(10);
-  x match {
-    case 0 => "#f3722c"
-    case 1 => "#43aa8b"
-    case 2 => "#f9c74f"
-    case 3 => "#f94144"
-    case 4 => "#90be6d"
-    case 5 => "#4d908e"
-    case 6 => "#f9844a"
-    case 7 => "#277da1"
-    case 8 => "#577590"
-    case 9 => "#f8961e"
-    case _ => "black"
-  }
 }
