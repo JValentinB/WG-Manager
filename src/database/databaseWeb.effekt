@@ -84,7 +84,7 @@ extern async def readData(db: Database, query: String): Array[Array[String]] =
     const rows = [];
     while (stmt.step()) {
       const row = stmt.getAsObject();
-      const rowArray = Object.values(row).map(value => value?.toString() || "null");
+      const rowArray = Object.values(row).map(value => value?.toString() || "");
       rows.push(rowArray);
     }
     callback(rows);
@@ -97,7 +97,7 @@ extern async def readDataWithParams(db: Database, query: String, param: String):
     const rows = [];
     while (stmt.step()) {
       const row = stmt.getAsObject();
-      const rowArray = Object.values(row).map(value => value?.toString() || "null");
+      const rowArray = Object.values(row).map(value => value?.toString() || "");
       rows.push(rowArray);
     }
     callback(rows[0]);

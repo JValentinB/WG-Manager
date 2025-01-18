@@ -33,6 +33,10 @@ type Event {
   UpdateTask(oldName: String, newName: Node, desc: Node, schedule: Node);
   UpdateConsumable(oldName: String, newName: Node, desc: Node);
   UpdateFlatmate(oldName: String, newName: Node);
+
+  TaskDone(taskName: String, flatmateName: String);
+  TaskAssign(taskName: String, flatmateName: String);
+  TaskUnassign(taskName: String, flatmateName: String);
 }
 
 interface Model {
@@ -57,6 +61,10 @@ interface DataModel {
   def updateTask(oldName: String, newName: Node, desc: Node, schedule: Node): Unit
   def updateConsumable(oldName: String, newName: Node, desc: Node): Unit
   def updateFlatmate(oldName: String, newName: Node): Unit
+
+  def taskDone(taskName: String, flatmateName: String): Unit
+  def taskAssign(taskName: String, flatmateName: String): Unit
+  def taskUnassign(taskName: String, flatmateName: String): Unit
 }
 
 def run(root: Node, app: Application[Event]): Unit = app match {
@@ -126,6 +134,10 @@ def run(root: Node, app: Application[Event]): Unit = app match {
             case UpdateConsumable(_, _, _) => render()
             case UpdateFlatmate(_, _) => render()
 
+            case TaskDone(_, _) => render()
+            case TaskAssign(_, _) => render()
+            case TaskUnassign(_, _) => render()
+
             case HideEditMenu() => render()
 
             case _ => ()
@@ -165,6 +177,10 @@ def dispatchData(msg: Event) = {
     case UpdateTask(oldName, newName, desc, schedule) => do updateTask(oldName, newName, desc, schedule)
     case UpdateConsumable(oldName, newName, desc) => do updateConsumable(oldName, newName, desc)
     case UpdateFlatmate(oldName, newName) => do updateFlatmate(oldName, newName)
+
+    case TaskDone(taskName, flatmateName) => do taskDone(taskName, flatmateName)
+    case TaskAssign(taskName, flatmateName) => do taskAssign(taskName, flatmateName)
+    case TaskUnassign(taskName, flatmateName) => do taskUnassign(taskName, flatmateName)
     case _ => ()
   }
 }
@@ -330,6 +346,31 @@ def runApp(): Unit = {
         }
         resume(())
       }
+
+      def taskDone(taskName: String, flatmateName: String) = {
+        val response = post("/taskDone", "{\"taskName\":\"" ++ taskName ++ "\",\"flatmateName\":\"" ++ flatmateName ++ "\"}")
+        handleServerResponse(response) {
+          updateDatabase()
+          updateDataCategoryFromDatabase("tasks")
+        }
+        resume(())
+      }
+      def taskAssign(taskName: String, flatmateName: String) = {
+        val response = post("/taskAssign", "{\"taskName\":\"" ++ taskName ++ "\",\"flatmateName\":\"" ++ flatmateName ++ "\"}")
+        handleServerResponse(response) {
+          updateDatabase()
+          updateDataCategoryFromDatabase("tasks")
+        }
+        resume(())
+      }
+      def taskUnassign(taskName: String, flatmateName: String) = {
+        val response = post("/taskUnassign", "{\"taskName\":\"" ++ taskName ++ "\",\"flatmateName\":\"" ++ flatmateName ++ "\"}")
+        handleServerResponse(response) {
+          updateDatabase()
+          updateDataCategoryFromDatabase("tasks")
+        }
+        resume(())
+      }
     }
   }
 
@@ -463,23 +504,71 @@ def runApp(): Unit = {
   }
 
   def viewSingleTask(task: Task): HtmlElement[Event] / { Model, DataModel } = {
-    def flatmateCard(flatmate: Flatmate, scale: Double): HtmlElement[Event] / { Model, DataModel } = {
-      div(flatmate.name, [], [Attribute("style", styleCard(flatmate.color, scale))], [], None())
+    def assignedFlatmateCard(flatmate: Flatmate): HtmlElement[Event] / { Model, DataModel } = {
+      val taskDoneButton = button("Task Done", [], 
+        [Attribute("style", stylesSection("cardButton"))], 
+        [OnClick(TaskDone(task.name, flatmate.name))], None()
+      )
+      val bottomGroup = div("", [taskDoneButton], [Attribute("style", styles("buttonGroup") ++ "bottom: -15px;")], [], None())
+      val bottomGroupParent = div("", [bottomGroup], [Attribute("style", stylesSection("bottomButtonGroup"))], [], None())
+
+      val unassignButton = button("Unassign", [], 
+        [Attribute("style", stylesSection("cardButton"))], 
+        [OnClick(TaskUnassign(task.name, flatmate.name))], None()
+      )
+      val topGroup = div("", [unassignButton], [Attribute("style", styles("buttonGroup") ++ "top: 0;")], [], None())
+      val topGroupParent = div("", [topGroup], [Attribute("style", stylesSection("topButtonGroup"))], [], None())
+
+      val onShowEditMenu = Action(box {
+        topGroupParent.node.setStyle("top", "-100px")
+        bottomGroupParent.node.setStyle("bottom", "-100px")
+        ()
+      })
+      div(flatmate.name, [topGroupParent, bottomGroupParent], 
+        [Attribute("style", styleCard(flatmate.color))], 
+        [OnClick(ShowEditMenu(onShowEditMenu))], None()
+      )
     }
+    def unassignedFlatmateCard(flatmate: Flatmate): HtmlElement[Event] / { Model, DataModel } = {
+      val assignButton = button("Assign", [], 
+        [Attribute("style", stylesSection("cardButton"))], 
+        [OnClick(TaskAssign(task.name, flatmate.name))], None()
+      )
+      val topGroup = div("", [assignButton], [Attribute("style", styles("buttonGroup") ++ "top: 0;")], [], None())
+      val topGroupParent = div("", [topGroup], [Attribute("style", stylesSection("topButtonGroup"))], [], None())
+
+      val onShowEditMenu = Action(box {
+        topGroupParent.node.setStyle("top", "-100px")
+        ()
+      })
+      div(flatmate.name, [topGroupParent], 
+        [Attribute("style", styleCard("#1b2838") ++ "border: 7px dashed #213145;")], 
+        [OnClick(ShowEditMenu(onShowEditMenu))], None()
+      )
+    }
+
     // Create a card for each flatmate assign to the task an put them in a container
     def taskMenu(): HtmlElement[Event] / { Model, DataModel } = {
-      var flatmateCards = empty[HtmlElement[Event]]()
-      var index = 0
-      task.assignedFlatmates.foreach { name =>
-        val flatmate = database.getFlatmateByName(name)
-        var scale = 1.0
-        if (index == 0) {
-          scale = 1.1
+      var flatmates = database.getFlatmates()
+      var unassignedFlatmates = empty[Flatmate]()
+      flatmates.foreach { flatmate =>
+        val isAssigned = task.assignedFlatmates.any { name => name == flatmate.name }
+        if (isAssigned == false) { // How do you negate a boolean???
+          unassignedFlatmates = unassignedFlatmates.append([flatmate])
         }
-        val flatmateCard = flatmateCard(flatmate, scale)
-        flatmateCards = flatmateCards.append([flatmateCard])
+        ()
+      }
 
-        index = index + 1
+      var flatmateCards = empty[HtmlElement[Event]]()
+      task.assignedFlatmates.foreach { flatmateName =>
+        val flatmate = database.getFlatmateByName(flatmateName)
+        val flatmateCard = assignedFlatmateCard(flatmate)
+        flatmateCards = flatmateCards.append([flatmateCard])
+        ()  
+      }
+      unassignedFlatmates.foreach { flatmate =>
+        val flatmateCard = unassignedFlatmateCard(flatmate)
+        flatmateCards = flatmateCards.append([flatmateCard])
         ()
       }
 
@@ -489,20 +578,7 @@ def runApp(): Unit = {
       div("", [title, cardsContainer], [Attribute("style", stylesSection("entryContainer"))], [], None())
     }
 
-    val taskApp = Application[Event](
-      box { (ev) => 
-        with mainController
-        with dataController
-        ev.dispatch()
-        ev.dispatchData()
-      },
-      box { 
-        with mainController
-        with dataController
-        taskMenu()
-      }
-    )
-    div("", [], [Attribute("id", task.name ++ "Settings"), Attribute("style", "display: block; width: 100%;")], [], Some(taskApp))
+    div("", [taskMenu()], [Attribute("id", task.name ++ "Settings"), Attribute("style", "display: block; width: 100%;")], [], None())
   }
   def viewSingleConsumable(consumable: Consumable): HtmlElement[Event] / { Model, DataModel } = {
     // Create a card for each flatmate assign to the task an put them in a container
@@ -510,9 +586,8 @@ def runApp(): Unit = {
       var flatmateCards = empty[HtmlElement[Event]]()
       consumable.count.foreach { case (name, count) =>
         val flatmate = database.getFlatmateByName(name)
-        var scale = 1.0
 
-        val flatmateCard = div(name, [], [Attribute("style", styleCard(flatmate.color, scale))], [], None())
+        val flatmateCard = div(name, [], [Attribute("style", styleCard(flatmate.color))], [], None())
         flatmateCards = flatmateCards.append([flatmateCard])
         ()
       }
@@ -551,7 +626,7 @@ def runApp(): Unit = {
       [Attribute("style", stylesSection("cardButton"))],
       [OnClick(HideEditMenu())], None()
     )
-    val bottomGroup = div("", [confirmButton, cancelButton], [Attribute("style", styles("buttonGroup"))], [], None())
+    val bottomGroup = div("", [confirmButton, cancelButton], [Attribute("style", styles("buttonGroup") ++ "bottom: -20px;")], [], None())
     val bottomGroupParent = div("", [bottomGroup], [Attribute("style", stylesSection("bottomButtonGroup"))], [], None()) 
 
     val confirmDeleteButton = button(svg("confirmVertical"), [],
@@ -609,7 +684,7 @@ def runApp(): Unit = {
 
     textInput = textInput.addHandlers([OnClick(ShowEditMenu(onShowEditMenu)), OnChange(FlatmateChange(onTextChange))])
     val card = div("", [textInput, topGroupParent, bottomGroupParent, rightGroupParent], 
-      [Attribute("style", styleCard(flatmate.color, 1.0)), Attribute("id", flatmate.name ++ "Card"), Attribute("data-value", flatmate.color)], 
+      [Attribute("style", styleCard(flatmate.color)), Attribute("id", flatmate.name ++ "Card"), Attribute("data-value", flatmate.color)], 
       [OnClick(ShowEditMenu(onShowEditMenu))], None()
     )
 

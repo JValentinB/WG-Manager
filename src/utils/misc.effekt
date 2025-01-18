@@ -1,5 +1,8 @@
 module misc 
 
+extern pure def getCurrentTime(): Int =
+  jsNode "Date.now()"
+  
 extern pure def timestampToFormattedDate(timestamp: Int): String =
   jsWeb """new Date(${timestamp}).toLocaleDateString()"""
 

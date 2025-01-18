@@ -15,12 +15,12 @@ def svg(id: String): String = id match {
   </svg>
   """ // https://www.svgrepo.com/svg/521200/people
   case "confirm" => """
-  <svg width="80px" height="80px" viewBox="-1 -2 19 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <svg width="80px" height="80px" viewBox="-2 0 19 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
   <path fill="white" d="M7.3 14.2l-7.1-5.2 1.7-2.4 4.8 3.5 6.6-8.5 2.3 1.8z"></path>
   </svg>
   """ // https://www.svgrepo.com/svg/371114/check
   case "cancel" => """
-  <svg width="80px" height="80px" viewBox="0 -2 16 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <svg width="80px" height="80px" viewBox="0 0 16 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
   <path fill="white" d="M12.96 4.46l-1.42-1.42-3.54 3.55-3.54-3.55-1.42 1.42 3.55 3.54-3.55 3.54 1.42 1.42 3.54-3.55 3.54 3.55 1.42-1.42-3.55-3.54 3.55-3.54z"></path>
   </svg>
   """ // https://www.svgrepo.com/svg/371151/close-small
@@ -35,7 +35,7 @@ def svg(id: String): String = id match {
   </svg>
   """ // https://www.svgrepo.com/svg/371151/close-small
   case "color" => """
-  <svg width="80px" height="80px" viewBox="0 1 24 28" xmlns="http://www.w3.org/2000/svg">
+  <svg width="80px" height="80px" viewBox="0 -2 24 28" xmlns="http://www.w3.org/2000/svg">
   <defs><style>.cls-1{fill:none;stroke:white;stroke-miterlimit:10;stroke-width:1.92px;}</style></defs>
   <g id="roll_brush" data-name="roll brush">
   <rect class="cls-1" x="4.3" y="1.46" width="15.34" height="9.59"/>
@@ -44,7 +44,7 @@ def svg(id: String): String = id match {
   </svg>
   """ // https://www.svgrepo.com/svg/454923/brush
   case "delete" => """
-  <svg width="100px" height="100px" viewBox="0 2 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg width="100px" height="100px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
   <path fill-rule="evenodd" clip-rule="evenodd" d="M9 4.5V6H6V7.5H18V6H15V4.5H9ZM6.75 8.25H8.25V17.6893L8.56066 18H15.4393L15.75 17.6893V8.25H17.25V18.3107L16.0607 19.5H7.93934L6.75 18.3107V8.25Z" fill="white"/>
   </svg>
   """ // https://www.svgrepo.com/svg/521251/trash-1

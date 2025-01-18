@@ -7,6 +7,7 @@ import io/error
 
 import src/database/database
 import src/database/data
+import src/utils/misc
 
 // Node.js HTTP server FFI definitions
 extern type Server
@@ -46,9 +47,6 @@ extern def getJsonValue(json: String, key: String): String =
 
 extern def getJsonValueAsInt(json: String, key: String): Int =
   jsNode """parseInt(JSON.parse(${json})[${key}])"""
-
-extern pure def getCurrentTime(): Int =
-  jsNode "Date.now()"
 
 
 extern io def writeHead(res: Response, status: Int, contentType: String): Unit =
@@ -211,6 +209,52 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
       } else {
         writeHead(res, 400, "application/json")
         end(res, """{"error":"Name is required"}""")
+      }
+    }
+
+    case ("POST", "taskDone") => {
+      val taskName = body.getJsonValue("taskName")
+      val flatmateName = body.getJsonValue("flatmateName")
+      if (taskName == "" || flatmateName == "") {
+        writeHead(res, 400, "application/json")
+        end(res, """{"error":"Task name and flatmate name are required"}""")
+      } else {
+        handleDatabaseMessage(db, dbPath, res) {
+          val task = db.getTaskByName(taskName)
+          val updatedTask = task.taskDone(flatmateName)
+          db.updateTask(taskName, updatedTask)
+          ()
+        }
+      }
+    }
+    case ("POST", "taskAssign") => {
+      val taskName = body.getJsonValue("taskName")
+      val flatmateName = body.getJsonValue("flatmateName")
+      if (taskName == "" || flatmateName == "") {
+        writeHead(res, 400, "application/json")
+        end(res, """{"error":"Task name and flatmate name are required"}""")
+      } else {
+        handleDatabaseMessage(db, dbPath, res) {
+          val task = db.getTaskByName(taskName)
+          val updatedTask = task.assignFlatmate(flatmateName)
+          db.updateTask(taskName, updatedTask)
+          ()
+        }
+      }
+    }
+    case ("POST", "taskUnassign") => {
+      val taskName = body.getJsonValue("taskName")
+      val flatmateName = body.getJsonValue("flatmateName")
+      if (taskName == "" || flatmateName == "") {
+        writeHead(res, 400, "application/json")
+        end(res, """{"error":"Task name and flatmate name are required"}""")
+      } else {
+        handleDatabaseMessage(db, dbPath, res) {
+          val task = db.getTaskByName(taskName)
+          val updatedTask = task.unassignFlatmate(flatmateName)
+          db.updateTask(taskName, updatedTask)
+          ()
+        }
       }
     }
     case _ => {
