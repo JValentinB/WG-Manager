@@ -275,9 +275,29 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
     }
 
     case ("POST", "deleteTask") => {
+      val name = body.getJsonValue("name")
+      if (name != "") {
+        db.deleteTask(name)
+        db.saveDatabase(dbPath)
+        writeHead(res, 200, "application/json")
+        end(res, """{"success":true}""")
+      } else {
+        writeHead(res, 400, "application/json")
+        end(res, """{"error":"Name is required"}""")
+      }
       ()
     }
     case ("POST", "deleteConsumable") => {
+      val name = body.getJsonValue("name")
+      if (name != "") {
+        db.deleteConsumable(name)
+        db.saveDatabase(dbPath)
+        writeHead(res, 200, "application/json")
+        end(res, """{"success":true}""")
+      } else {
+        writeHead(res, 400, "application/json")
+        end(res, """{"error":"Name is required"}""")
+      }
       ()
     }
     case ("POST", "deleteFlatmate") => {

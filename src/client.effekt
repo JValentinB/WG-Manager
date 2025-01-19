@@ -482,6 +482,43 @@ def runApp(): Unit = {
     )
     addButton
   }
+  def viewDeleteButton(deleteEvent: Event): HtmlElement[Event] / Model = {
+    var deleteButton = button("Delete", [], 
+      [Attribute("style", stylesInfos("infoButton"))], 
+      [], None()
+    )
+    val deleteConfirmButton = button("Confirm Delete", [], 
+      [Attribute("style", stylesInfos("infoButton"))], 
+      [OnClick(deleteEvent)], None()
+    )
+    var deleteCancelButton = button("Cancel", [], 
+      [Attribute("style", stylesInfos("infoButton"))], 
+      [], None()
+    )
+    var deleteWrapper = div("", [], 
+      [Attribute("style", stylesInfos("infoWrapper") ++ "display: none; background: rgb(246, 68, 45);")], 
+      [], None()
+    )
+    
+    val deleteButtonNode = deleteButton.node
+    val deleteCancelNode = deleteCancelButton.node
+    val wrapperNode = deleteWrapper.node
+    val onDeleteClick = Action(box {
+      deleteButtonNode.setStyle("display", "none")
+      wrapperNode.setStyle("display", "flex")
+      ()
+    })
+    val onDeleteCancel = Action(box {
+      deleteButtonNode.setStyle("display", "block")
+      wrapperNode.setStyle("display", "none")
+      ()
+    })
+
+    deleteButton = deleteButton.addHandlers([OnClick(UIInteraction(onDeleteClick))])
+    deleteCancelButton = deleteCancelButton.addHandlers([OnClick(UIInteraction(onDeleteCancel))])
+    deleteWrapper = deleteWrapper.appendChildren([deleteConfirmButton, deleteCancelButton])
+    div("", [deleteButton, deleteWrapper], [Attribute("style", styles("wrapper") ++ "border-top: 5px solid #ccc;")], [], None())
+  }
 
 
   def viewAddTask(): HtmlElement[Event] / { Model, DataModel } = {
@@ -611,13 +648,15 @@ def runApp(): Unit = {
       [], None())
     val lastDoneWrapper = div("", [lastDoneSpan, infoLastDone], [Attribute("style", stylesInfos("infoWrapper") ++ "margin-top: 10px;")], [], None())
 
+    // Delete Task Button
+    val deleteButton = viewDeleteButton(DeleteTask(task.name))
     // Save Button
     val saveButton = button("Save", [], 
       [Attribute("style", stylesInfos("infoButton") ++ "border-top: 5px solid #ccc;")], 
       [OnClick(UpdateTask(task.name, infoName.node, infoDesc.node, infoSchedule.node, infoLastDone.node))], None()
     )
 
-    div("", [infoName, infoDesc, scheduleWrapper, lastDoneWrapper, saveButton], [Attribute("style", stylesInfos("infoContainer"))], [], None())
+    div("", [infoName, infoDesc, scheduleWrapper, lastDoneWrapper, deleteButton, saveButton], [Attribute("style", stylesInfos("infoContainer"))], [], None())
   }
   def viewConsumableInfos(consumable: Consumable): HtmlElement[Event] / { Model, DataModel } = {
     // Consumable Name
@@ -682,13 +721,16 @@ def runApp(): Unit = {
     veryUrgentButton = veryUrgentButton.addHandlers([OnClick(UIInteraction(onVeryUrgent))])
     urgencyWrapper = urgencyWrapper.appendChildren([notUrgentButton, urgentButton, veryUrgentButton])
 
+    // Delete Consumable Button
+    val deleteButton = viewDeleteButton(DeleteConsumable(consumable.name))
+
     // Save Button
     val saveButton = button("Save", [], 
       [Attribute("style", stylesInfos("infoButton") ++ "border-top: 5px solid #ccc;")], 
       [OnClick(UpdateConsumable(consumable.name, infoName.node, infoDesc.node, urgencyWrapper.node))], None()
     )
 
-    div("", [infoName, infoDesc, urgencyWrapper, saveButton], [Attribute("style", stylesInfos("infoContainer"))], [], None())
+    div("", [infoName, infoDesc, urgencyWrapper, deleteButton, saveButton], [Attribute("style", stylesInfos("infoContainer"))], [], None())
   }
   def viewInfos(infoContainer: HtmlElement[Event]): HtmlElement[Event] / { Model, DataModel } = {
     var showInfosButton = button(svg("arrowdown"), [], 
