@@ -1,4 +1,0 @@
-module view
-
-import src/utils/UI
-import src/utils/dom

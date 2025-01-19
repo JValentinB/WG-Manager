@@ -641,15 +641,14 @@ def main() = {
   val databasePath = "./data.sqlite"
   val db = openWGManagerDatabase(databasePath)
 
-  // db.deleteFlatmate("Valentin")
+  try {
+    db.updateConsumable(Consumable("Importante!!!", "", [], 0))
+  } with DatabaseMessage {
+    def clear() = ()
+    def warning(message: String) = {
+      println(message)
+    }
+  }
   db.saveDatabase(databasePath)
-
-  // println("Database saved")
-  
-  // val tasks = db.getTasks()
-  // tasks.foreach { task =>
-  //   printTask(task)
-  // }
-  
   ()
 }

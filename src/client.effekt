@@ -249,7 +249,7 @@ def runApp(): Unit = {
         val taskSchedule = schedule.getValue()
         val taskLastDone = lastDone.getValue().datestringToTimestamp()
 
-        if (taskName != "" && taskDesc != "" && taskSchedule != "") {
+        if (taskName != "" && taskSchedule != "") {
           val response = post(
             "/addTask", 
             "{\"name\":\"" ++ taskName ++ "\",\"description\":\"" ++ taskDesc ++ "\",\"schedule\":" ++ taskSchedule ++ ",\"lastDone\":" ++ show(taskLastDone) ++ "}"
@@ -259,21 +259,21 @@ def runApp(): Unit = {
             updateDataCategoryFromDatabase("tasks")
           }
         } else {
-          alert("Please enter a name, description and schedule")
+          alert("Please enter a name and schedule")
         }
         resume(())
       }
       def addConsumable(name: Node, desc: Node) = {
         val consumableName = name.getValue()
         val consumableDesc = desc.getValue()
-        if (consumableName != "" && consumableDesc != "") {
+        if (consumableName != "") {
           val response = post("/addConsumable", "{\"name\":\"" ++ consumableName ++ "\",\"description\":\"" ++ consumableDesc ++ "\"}")
           handleServerResponse(response) {
             updateDatabase()
             updateDataCategoryFromDatabase("consumables")
           }
         } else {
-          alert("Please enter a name and description")
+          alert("Please enter a name.")
         }
         resume(())
       }
@@ -315,8 +315,8 @@ def runApp(): Unit = {
         val schedule = schedule.getValue()
         val lastDone = lastDone.getValue().datestringToTimestamp()
 
-        if (name == "" || description == "" || schedule == "") {
-          alert("Please enter a name, description and schedule")
+        if (name == "" || schedule == "") {
+          alert("Please enter a name and schedule.")
         } else {
           var response = ""
           if (oldName == name) {
@@ -341,16 +341,17 @@ def runApp(): Unit = {
       def updateConsumable(oldName: String, newName: Node, desc: Node, urgency: Node) = {
         val name = newName.getValue()
         val description = desc.getValue().escapeJsonString()
-        val urgency = urgency.getAttribute("data-value")
+        val urgencyValue = urgency.getAttribute("data-value")
 
-        if (name == "" || description == "") {
-          alert("Please enter a name and description")
+        consoleLog(urgencyValue)
+        if (name == "") {
+          alert("Please enter a name.")
         } else {
           var response = ""
           if (oldName == name) {
-            response = post("/updateConsumable", "{\"name\":\"" ++ name ++ "\",\"description\":\"" ++ description ++ "\",\"urgency\":" ++ urgency ++ "}")
+            response = post("/updateConsumable", "{\"name\":\"" ++ name ++ "\",\"description\":\"" ++ description ++ "\",\"urgency\":" ++ urgencyValue ++ "}")
           } else {
-            response = post("/renameConsumable", "{\"oldName\":\"" ++ oldName ++ "\",\"newName\":\"" ++ name ++ "\",\"description\":\"" ++ description ++ "\",\"urgency\":" ++ urgency ++ "}")
+            response = post("/renameConsumable", "{\"oldName\":\"" ++ oldName ++ "\",\"newName\":\"" ++ name ++ "\",\"description\":\"" ++ description ++ "\",\"urgency\":" ++ urgencyValue ++ "}")
           }
 
           handleServerResponse(response) {
@@ -689,7 +690,10 @@ def runApp(): Unit = {
     var veryUrgentButton = button("Very Urgent", [], 
       [Attribute("style", stylesInfos("infoButton") ++ veryUrgentStyle)], 
       [], None()) 
-    var urgencyWrapper = div("", [], [Attribute("style", stylesInfos("infoWrapper") ++ "margin-bottom: 10px;")], [], None())
+    var urgencyWrapper = div("", [], 
+      [Attribute("style", stylesInfos("infoWrapper") ++ "margin-bottom: 10px;"), Attribute("data-value", show(consumable.urgency))], 
+      [], None()
+    )
 
     val notUrgentNode = notUrgentButton.node
     val urgentNode = urgentButton.node

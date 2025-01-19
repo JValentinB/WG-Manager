@@ -128,9 +128,9 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
       val schedule = body.getJsonValueAsInt("schedule")
       val lastDone = body.getJsonValueAsInt("lastDone")
 
-      if (name == "" || description == "" || schedule == 0) {
+      if (name == "" || schedule <= 0) {
         writeHead(res, 400, "application/json")
-        end(res, """{"error":"Name, description and schedule are required"}""")
+        end(res, """{"error":"Name is required. Schedule must be greater than 0."}""")
       } else {
         val names = db.getFlatmateNames()
         val task = Task(name, description, schedule, lastDone, names)  
@@ -144,9 +144,9 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
       val name = body.getJsonValue("name")
       val description = body.getJsonValue("description")
 
-      if (name == "" || description == "") {
+      if (name == "") {
         writeHead(res, 400, "application/json")
-        end(res, """{"error":"Name and description are required"}""")
+        end(res, """{"error":"Name is required"}""")
       } else {
         val currentTimestamp = getCurrentTime()
         val names = db.getFlatmateNames()
@@ -177,9 +177,9 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
       val schedule = body.getJsonValueAsInt("schedule")
       val lastDone = body.getJsonValueAsInt("lastDone")
 
-      if (name == "" || description == "" || schedule <= 0) {
+      if (name == "" || schedule <= 0) {
         writeHead(res, 400, "application/json")
-        end(res, """{"error":"Name, description are required. Schedule must be greater than 0"}""")
+        end(res, """{"error":"Name is required. Schedule must be greater than 0"}""")
       } else {
         handleDatabaseMessage(db, dbPath, res) {
           val task = db.getTaskByName(name)
@@ -194,9 +194,9 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
       val description = body.getJsonValue("description")
       val urgency = body.getJsonValueAsInt("urgency")
 
-      if (name == "" || description == "") {
+      if (name == "") {
         writeHead(res, 400, "application/json")
-        end(res, """{"error":"Name and description are required"}""")
+        end(res, """{"error":"Name is required"}""")
       } else {
         handleDatabaseMessage(db, dbPath, res) {
           val consumable = db.getConsumableByName(name)
@@ -228,9 +228,9 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
       val schedule = body.getJsonValueAsInt("schedule")
       val lastDone = body.getJsonValueAsInt("lastDone")
 
-      if (oldName == "" || newName == "" || description == "" || schedule <= 0) {
+      if (oldName == "" || newName == "" || schedule <= 0) {
         writeHead(res, 400, "application/json")
-        end(res, """{"error":"Name, description and schedule are required"}""")
+        end(res, """{"error":"Name is required. Schedule must be greater than 0"}""")
       } else {
         handleDatabaseMessage(db, dbPath, res) {
           val task = db.getTaskByName(oldName)
@@ -246,9 +246,10 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
       val description = body.getJsonValue("description")
       val urgency = body.getJsonValueAsInt("urgency")
 
-      if (oldName == "" || newName == "" || description == "") {
+      println(oldName ++ " " ++ newName ++ " " ++ description ++ " " ++ show(urgency))
+      if (oldName == "" || newName == "") {
         writeHead(res, 400, "application/json")
-        end(res, """{"error":"Name and description are required"}""")
+        end(res, """{"error":"Name is required"}""")
       } else {
         handleDatabaseMessage(db, dbPath, res) {
           val consumable = db.getConsumableByName(oldName)

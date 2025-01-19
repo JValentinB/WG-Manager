@@ -42,14 +42,14 @@ def toListOfStrings(consumable: Consumable): List[String] = {
 }
 
 def toFlatmate(list: List[String]): Flatmate = {
-  with on[OutOfBounds].default { println("Index out of bounds"); Flatmate("OutOfBounds", "red") };
-  with on[WrongFormat].default { println("Wrong Format"); Flatmate("WrongFormat", "") };
+  with on[OutOfBounds].default { println("Index out of bounds"); Flatmate("This is a OutOfBounds bug!", "red") };
+  with on[WrongFormat].default { println("Wrong Format"); Flatmate("This a WrongFormat bug!", "") };
 
   Flatmate(list.get(0), list.get(1))
 }
 def toTask(list: List[String]): Task = {
-  with on[OutOfBounds].default { println("Index out of bounds"); Task("OutOfBounds", "", 0, 0, []) };
-  with on[WrongFormat].default { println("Wrong Format"); Task("WrongFormat", "", 0, 0, []) };
+  with on[OutOfBounds].default { println("Index out of bounds"); Task("This is a OutOfBounds bug!", "", 0, 0, []) };
+  with on[WrongFormat].default { println("Wrong Format"); Task("This a WrongFormat bug!", "", 0, 0, []) };
 
   val flatmateString = list.get(4)
   if (flatmateString == "") {
@@ -60,8 +60,8 @@ def toTask(list: List[String]): Task = {
   }
 }
 def toConsumable(list: List[String]): Consumable = {
-  with on[OutOfBounds].default { println("Index out of bounds"); Consumable("OutOfBounds", "", [], 0) };
-  with on[WrongFormat].default { println("Wrong Format"); Consumable("WrongFormat", "", [], 0) };
+  with on[OutOfBounds].default { println("Index out of bounds"); Consumable("This is a OutOfBounds bug!", "", [], 0) };
+  with on[WrongFormat].default { println("Wrong Format"); Consumable("This a WrongFormat bug!", "", [], 0) };
 
   val countString = list.get(2)
   if (countString == "") {
