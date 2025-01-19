@@ -48,5 +48,15 @@ def svg(id: String): String = id match {
   <path fill-rule="evenodd" clip-rule="evenodd" d="M9 4.5V6H6V7.5H18V6H15V4.5H9ZM6.75 8.25H8.25V17.6893L8.56066 18H15.4393L15.75 17.6893V8.25H17.25V18.3107L16.0607 19.5H7.93934L6.75 18.3107V8.25Z" fill="white"/>
   </svg>
   """ // https://www.svgrepo.com/svg/521251/trash-1
+  case "arrowdown" => """
+  <svg width="80px" height="80px" viewBox="0 0 16 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <path fill="white" d="M8 12l-6.32-6.32 1.67-1.68 4.65 4.65 4.65-4.65 1.67 1.68-6.32 6.32z"></path>
+  </svg>
+  """ // https://www.svgrepo.com/svg/371127/chevron-down-small
+  case "arrowup" => """
+  <svg width="80px" height="80px" viewBox="0 0 16 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <path fill="white" d="M8 4l-6.32 6.32 1.67 1.68 4.65-4.65 4.65 4.65 1.67-1.68-6.32-6.32z"></path>
+  </svg>
+  """ // https://www.svgrepo.com/svg/371130/chevron-up-small
   case _ => ""
 }

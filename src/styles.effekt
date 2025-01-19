@@ -4,7 +4,12 @@ import src/utils/dom
 import src/utils/misc
 
 val darkGrey = "rgb(8, 12, 17)"
-val lightGrey = "rgb(16, 24, 34)"
+val normalGrey = "rgb(16, 24, 34)"
+val lightGrey = "rgb(27, 40, 56)"
+
+val marginValue = 15
+val standardMargin = show(marginValue) ++ "px"
+val doubleMargin = show(marginValue * 2) ++ "px"
 
 
 def styles(id: String): String = {
@@ -14,6 +19,7 @@ def styles(id: String): String = {
       justify-content: center;
       align-items: center;
       font-family: sans-serif;
+      margin: """ ++ standardMargin ++ """;
       background:""" ++ darkGrey ++ """;
     """
     case "app" => """
@@ -30,8 +36,6 @@ def styles(id: String): String = {
       align-items: stretch;
       width: 100%;
       height: 100%;
-      color: white;
-      background: """ ++ lightGrey ++ """;
     """
     case "addButton" => """
       position: relative;
@@ -42,19 +46,26 @@ def styles(id: String): String = {
       height: 100px;
       padding: 0;
 
-      background-color: transparent;
-      border: 7px dashed #ccc;
+      background-color: """ ++ normalGrey ++ """;
+      border-radius: 15px;
+      border: 7px dashed white;
       font-size: 100px;
       line-height: normal;
-      color: #ccc;
+      color: white;
       cursor: pointer;
     """
     case "addMenu" => """
+      position: relative;
       display: none;
       justify-content: center;
       align-items: center;
+      flex-direction: column;
       width: 100%;
       height: 100%;
+
+      border-radius: 15px;
+      border: 7px dashed white;
+      background: """ ++ normalGrey ++ """;
     """
     case "addContainer" => """
       display: flex;
@@ -62,7 +73,7 @@ def styles(id: String): String = {
       align-items: center;
       width: 100%;
       height: 100%;
-      border-top: 5px solid """ ++ darkGrey ++ """;
+      margin-bottom: """ ++ standardMargin ++ """;
     """
     case "button" => """
       height: 100px;
@@ -70,21 +81,22 @@ def styles(id: String): String = {
       display: flex;
       justify-content: center;
       align-items: center;
-      border: 3px solid #ccc;
+      border: 3px solid whit;
       font-size: 60px;
-      color: #ccc;
+      color: white;
       cursor: pointer;
     """
     case "groupButton" => """
       flex: 1;
       height: 100px;
-      background-color: transparent;
       display: flex;
       justify-content: center;
       align-items: center;
-      border: 3px solid #ccc;
+
+      background: transparent;
+      border: none;
       font-size: 60px;
-      color: #ccc;
+      color: white;
       cursor: pointer;
     """
     case "buttonGroup" => """
@@ -104,20 +116,29 @@ def styles(id: String): String = {
       height: 100%;
     """
     case "textInput" => """
-      width: 90%;
+      display: block;
+      justify-content: center;
+      align-items: center;
       height: 100px;
       padding: 0;
       padding-left: 5%;
       padding-right: 5%;
-      background-color: white;
-      display: block;
-      justify-content: center;
-      align-items: center;
+
+      background: transparent;
       border: None;
-      border-top: 5px solid """ ++ darkGrey ++ """;
-      border-bottom: 5px solid """ ++ darkGrey ++ """;
+      border-radius: 15px;
       font-size: 60px;
       color: black;
+    """
+    case "textInputContainer" => """
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      width: calc(100% - """ ++ doubleMargin ++ """);
+      margin: """ ++ standardMargin ++ """;
+
+      background: white;
+      border-radius: 15px;
     """
     case "wrapper" => """
       display: block; 
@@ -145,9 +166,11 @@ def stylesNavBar(id: String): String = {
       display: block; 
       width: 100%;
       height: 100px;
-      background: """ ++ lightGrey ++ """;
+      margin-bottom: """ ++ standardMargin ++ """;
+
+      background: """ ++ normalGrey ++ """;
       color: white;
-      border-bottom: 5px solid """ ++ darkGrey ++ """;
+      border-radius: 15px;
     """
     case "navButtonInactive" => """
       position: relative;
@@ -167,6 +190,7 @@ def stylesNavBar(id: String): String = {
       width: 33.33%;
       height: 100%;
       background: """ ++ color ++ """;
+      border-radius: 15px;
       border: none;
       padding: 0;
       color: white;
@@ -191,6 +215,8 @@ def stylesSection(id: String): String = {
       height: 500px;
       overflow-y: hidden;
       overflow-x: auto;
+      scrollbar-width: none; /* Firefox */
+      -ms-overflow-style: none; /* IE 10+ */
     """
     // containing cards and title
     case "entryContainer" => """
@@ -200,8 +226,10 @@ def stylesSection(id: String): String = {
       align-items: center;
       width: 100%;
       height: 100%;
-      border-top: 5px solid """ ++ darkGrey ++ """;
-      border-bottom: 5px solid """ ++ darkGrey ++ """;
+      margin-bottom: """ ++ standardMargin ++ """;
+
+      background: """ ++ normalGrey ++ """;
+      border-radius: 15px;
     """
     // containing all entries
     case "listContainer" => """
@@ -221,16 +249,17 @@ def stylesSection(id: String): String = {
       align-items: center;
       text-align: center;
       font-size: 50px;
-      color: #ccc;
+      color: white;
     """
-    case "editMenu" => """
-      display: none;
-      flex-direction: column;
-      justify-content: space-between;
-      align-items: center;
-      width: 100%;
-      height: 100%;
-    """
+    case _ => {
+      consoleLog("unknown id: " ++ id)
+      ""
+    }
+  }
+}
+
+def stylesCardMenu(id: String): String = {
+  id match {
     case "cardTextInput" => """
       display: inline-block; 
       width: 200px;
@@ -238,6 +267,7 @@ def stylesSection(id: String): String = {
       color: white;
       background: transparent;
       border: None;
+      font-family: sans-serif;
       font-size: 50px;
       text-align: center;
     """
@@ -263,7 +293,7 @@ def stylesSection(id: String): String = {
       background-color: transparent;
       border: none;
       font-size: 50px;
-      color: #ccc;
+      color: white;
       cursor: pointer;
     """
     case "cardButtonVertical" => """
@@ -277,7 +307,7 @@ def stylesSection(id: String): String = {
       background-color: transparent;
       border: none;
       font-size: 50px;
-      color: #ccc;
+      color: white;
       cursor: pointer;
     """
     case "topButtonGroup" => """
@@ -288,9 +318,8 @@ def stylesSection(id: String): String = {
       top: 0;
       left: 0;
       transform: translateZ(-10px);
-      background: transparent;
+      background: """ ++ lightGrey ++ """;
       border-radius: 15px;
-      box-shadow: inset 0 0 0 4px white;
       transition: all 0.2s ease-in-out;
     """
     case "bottomButtonGroup" => """
@@ -301,9 +330,8 @@ def stylesSection(id: String): String = {
       bottom: 0;
       left: 0;
       transform: translateZ(-10px);
-      background: transparent;
+      background: """ ++ lightGrey ++ """;
       border-radius: 15px;
-      box-shadow: inset 0 0 0 4px white;
       transition: all 0.2s ease-in-out;
     """
     case "rightButtonGroup" => """
@@ -314,9 +342,8 @@ def stylesSection(id: String): String = {
       right: 0;
       top: 0;
       transform: translateZ(-10px);
-      background: transparent;
+      background: """ ++ lightGrey ++ """;
       border-radius: 15px;
-      box-shadow: inset 0 0 0 4px white;
       transition: all 0.2s ease-in-out;
     """
     case "leftButtonGroup" => """
@@ -327,10 +354,116 @@ def stylesSection(id: String): String = {
       left: 0;
       top: 0;
       transform: translateZ(-10px);
-      background: transparent;
+      background: """ ++ lightGrey ++ """;
       border-radius: 15px;
-      box-shadow: inset 0 0 0 4px white;
       transition: all 0.2s ease-in-out;
+    """
+    case "counterText" => """
+      position: absolute;
+      bottom: -17%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 100px;
+      padding-right: 10px;
+      padding-left: 10px;
+
+      background: """ ++ normalGrey ++ """;
+      border-radius: 15px;
+      font-size: 80px;
+      font-weight: bold;
+      text-align: right;
+      color: white;
+    """
+    case _ => {
+      consoleLog("unknown id: " ++ id)
+      ""
+    }
+  }
+}
+
+def stylesInfos(id: String): String = {
+  id match {
+    case "infoButton" => """
+      display: block;
+      width: 100%;
+      height: 80px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      color: white;
+      font-size: 50px;
+    """
+    case "infoContainer" => """
+      display: none;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      width: calc(100% - """ ++ doubleMargin ++ """);
+      height: 100%;
+      margin: """ ++ standardMargin ++ """;
+
+      border-radius: 15px;
+      background: """ ++ lightGrey ++ """;
+    """
+    case "infoText" => """
+      position: relative;
+      display: block;
+      flex: 1;
+      text-align: center;
+      width: 100%;
+      height: 75px;
+      
+      background: transparent;
+      border: None;
+      border-radius: 15px;
+      font-size: 60px;
+      color: white;
+      -moz-appearance: textfield;
+    """
+    case "infoTextArea" => """
+      position: relative;
+      display: block;
+      text-align: left;
+      padding-left: 10px;
+      padding-right: 10px;
+      width: calc(100% - 20px);
+      height: auto;
+      min-height: 200px;
+      resize: vertical;
+      
+      background: transparent;
+      border: None;
+      border-radius: 15px;
+      font-size: 45px;
+      color: white;
+
+      scrollbar-width: none; /* Firefox */
+      -ms-overflow-style: none; /* IE 10+ */
+    """
+    case "infoWrapper" => """
+      display: flex;
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: flex-start;
+      width: 100%;
+      height: 100%;
+    """
+    case "infoSpan" => """
+      position: relative;
+      display: flex;
+      flex: 1;
+      align-items: center; 
+      justify-content: flex-start; 
+      text-align: left;
+      width: 100%;
+      height: 75px;
+      padding-left: 10px;
+      
+      background: transparent;
+      border: None;
+      border-radius: 15px;
+      font-size: 60px;
+      color: #ccc;
     """
     case _ => {
       consoleLog("unknown id: " ++ id)
@@ -341,8 +474,8 @@ def stylesSection(id: String): String = {
 
 def styleCard(color: String): String = {
   """
-    display: flex;
     position: relative;
+    display: flex;
     transform-style: preserve-3d;
     justify-content: center;
     align-items: center;
@@ -356,19 +489,5 @@ def styleCard(color: String): String = {
     font-size: 50px;
     flex-shrink: 0;
     cursor: pointer;
-  """
-}
-
-def styleApp(): String = {
-  val windowWidth = getWindowWidth()
-  """
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    width: 100%;
-    height: 100%;
-    max-width: """ ++ show(windowWidth) ++ """px;
-    background: """ ++ darkGrey ++ """;
   """
 }

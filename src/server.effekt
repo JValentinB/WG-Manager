@@ -126,14 +126,14 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
       val name = body.getJsonValue("name")
       val description = body.getJsonValue("description")
       val schedule = body.getJsonValueAsInt("schedule")
+      val lastDone = body.getJsonValueAsInt("lastDone")
 
       if (name == "" || description == "" || schedule == 0) {
         writeHead(res, 400, "application/json")
         end(res, """{"error":"Name, description and schedule are required"}""")
       } else {
-        val currentTimestamp = getCurrentTime()
         val names = db.getFlatmateNames()
-        val task = Task(name, description, schedule, currentTimestamp, names)  
+        val task = Task(name, description, schedule, lastDone, names)  
 
         handleDatabaseMessage(db, dbPath, res) {
           db.insertTask(task)
@@ -172,12 +172,93 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
     }
 
     case ("POST", "updateTask") => {
+      val name = body.getJsonValue("name")
+      val description = body.getJsonValue("description")
+      val schedule = body.getJsonValueAsInt("schedule")
+      val lastDone = body.getJsonValueAsInt("lastDone")
+
+      if (name == "" || description == "" || schedule <= 0) {
+        writeHead(res, 400, "application/json")
+        end(res, """{"error":"Name, description are required. Schedule must be greater than 0"}""")
+      } else {
+        handleDatabaseMessage(db, dbPath, res) {
+          val task = db.getTaskByName(name)
+          val updatedTask = Task(name, description, schedule, lastDone, task.assignedFlatmates)
+          db.updateTask(updatedTask)
+        }
+      }
       ()
     }
     case ("POST", "updateConsumable") => {
+      val name = body.getJsonValue("name")
+      val description = body.getJsonValue("description")
+      val urgency = body.getJsonValueAsInt("urgency")
+
+      if (name == "" || description == "") {
+        writeHead(res, 400, "application/json")
+        end(res, """{"error":"Name and description are required"}""")
+      } else {
+        handleDatabaseMessage(db, dbPath, res) {
+          val consumable = db.getConsumableByName(name)
+          val updatedConsumable = Consumable(name, description, consumable.count, urgency)
+          db.updateConsumable(updatedConsumable)
+        }
+      }
       ()
     }
     case ("POST", "updateFlatmate") => {
+      val name = body.getJsonValue("name")
+      val color = body.getJsonValue("color")
+
+      if (name == "") {
+        writeHead(res, 400, "application/json")
+        end(res, """{"error":"Name is required"}""")
+      } else {
+        handleDatabaseMessage(db, dbPath, res) {
+          val updatedFlatmate = Flatmate(name, color)
+          db.updateFlatmate(updatedFlatmate)
+        }
+      }
+    }
+
+    case ("POST", "renameTask") => {
+      val oldName = body.getJsonValue("oldName")
+      val newName = body.getJsonValue("newName")
+      val description = body.getJsonValue("description")
+      val schedule = body.getJsonValueAsInt("schedule")
+      val lastDone = body.getJsonValueAsInt("lastDone")
+
+      if (oldName == "" || newName == "" || description == "" || schedule <= 0) {
+        writeHead(res, 400, "application/json")
+        end(res, """{"error":"Name, description and schedule are required"}""")
+      } else {
+        handleDatabaseMessage(db, dbPath, res) {
+          val task = db.getTaskByName(oldName)
+          val renamedTask = Task(newName, description, schedule, lastDone, task.assignedFlatmates)
+          db.renameTask(oldName, renamedTask)
+        }
+      }
+      ()
+    }
+    case ("POST", "renameConsumable") => {
+      val oldName = body.getJsonValue("oldName")
+      val newName = body.getJsonValue("newName")
+      val description = body.getJsonValue("description")
+      val urgency = body.getJsonValueAsInt("urgency")
+
+      if (oldName == "" || newName == "" || description == "") {
+        writeHead(res, 400, "application/json")
+        end(res, """{"error":"Name and description are required"}""")
+      } else {
+        handleDatabaseMessage(db, dbPath, res) {
+          val consumable = db.getConsumableByName(oldName)
+          val renamedConsumable = Consumable(newName, description, consumable.count, urgency)
+          db.renameConsumable(oldName, renamedConsumable)
+        }
+      }
+      ()
+    }
+    case ("POST", "renameFlatmate") => {
       val oldName = body.getJsonValue("oldName")
       val newName = body.getJsonValue("newName")
       val color = body.getJsonValue("color")
@@ -187,8 +268,8 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
         end(res, """{"error":"Name is required"}""")
       } else {
         handleDatabaseMessage(db, dbPath, res) {
-          val newFlatmate = Flatmate(newName, color)
-          db.updateFlatmate(oldName, newFlatmate)
+          val renamedFlatmate = Flatmate(newName, color)
+          db.renameFlatmate(oldName, renamedFlatmate)
         }
       }
     }
@@ -222,7 +303,7 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
         handleDatabaseMessage(db, dbPath, res) {
           val task = db.getTaskByName(taskName)
           val updatedTask = task.taskDone(flatmateName)
-          db.updateTask(taskName, updatedTask)
+          db.updateTask(updatedTask)
           ()
         }
       }
@@ -237,7 +318,7 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
         handleDatabaseMessage(db, dbPath, res) {
           val task = db.getTaskByName(taskName)
           val updatedTask = task.assignFlatmate(flatmateName)
-          db.updateTask(taskName, updatedTask)
+          db.updateTask(updatedTask)
           ()
         }
       }
@@ -252,7 +333,56 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
         handleDatabaseMessage(db, dbPath, res) {
           val task = db.getTaskByName(taskName)
           val updatedTask = task.unassignFlatmate(flatmateName)
-          db.updateTask(taskName, updatedTask)
+          db.updateTask(updatedTask)
+          ()
+        }
+      }
+    }
+
+    case ("POST", "consumableCountUp") => {
+      val consumableName = body.getJsonValue("consumableName")
+      val flatmateName = body.getJsonValue("flatmateName")
+
+      if (consumableName == "" || flatmateName == "") {
+        writeHead(res, 400, "application/json")
+        end(res, """{"error":"Consumable name and flatmate name are required"}""")
+      } else {
+        handleDatabaseMessage(db, dbPath, res) {
+          val consumable = db.getConsumableByName(consumableName)
+          val updatedConsumable = consumable.countUp(flatmateName)
+          db.updateConsumable(updatedConsumable)
+          ()
+        }
+      }
+    }
+    case ("POST", "consumableAssign") => {
+      val consumableName = body.getJsonValue("consumableName")
+      val flatmateName = body.getJsonValue("flatmateName")
+
+      if (consumableName == "" || flatmateName == "") {
+        writeHead(res, 400, "application/json")
+        end(res, """{"error":"Consumable name and flatmate name are required"}""")
+      } else {
+        handleDatabaseMessage(db, dbPath, res) {
+          val consumable = db.getConsumableByName(consumableName)
+          val updatedConsumable = consumable.assignFlatmate(flatmateName)
+          db.updateConsumable(updatedConsumable)
+          ()
+        }
+      }
+    }
+    case ("POST", "consumableUnassign") => {
+      val consumableName = body.getJsonValue("consumableName")
+      val flatmateName = body.getJsonValue("flatmateName")
+
+      if (consumableName == "" || flatmateName == "") {
+        writeHead(res, 400, "application/json")
+        end(res, """{"error":"Consumable name and flatmate name are required"}""")      
+      } else {
+        handleDatabaseMessage(db, dbPath, res) {
+          val consumable = db.getConsumableByName(consumableName)
+          val updatedConsumable = consumable.unassignFlatmate(flatmateName)
+          db.updateConsumable(updatedConsumable)
           ()
         }
       }

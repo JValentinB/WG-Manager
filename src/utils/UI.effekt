@@ -50,12 +50,18 @@ def div[Ev](text: String, children: List[HtmlElement[Ev]], attributes: List[Attr
 
 def input[Ev](text: String, children: List[HtmlElement[Ev]], attributes: List[Attribute], handlers: List[EventHandler[Ev]], app: Option[Application[Ev]]) =
   HtmlElement(createElement("input"), "input", text, app, children, attributes, handlers)
+def textarea[Ev](text: String, children: List[HtmlElement[Ev]], attributes: List[Attribute], handlers: List[EventHandler[Ev]], app: Option[Application[Ev]]) =
+  HtmlElement(createElement("textarea"), "textarea", text, app, children, attributes, handlers)
 
 
 
-def appendChild[Ev](parent: HtmlElement[Ev], child: HtmlElement[Ev]): Unit = {
-  parent.children.append([child])
-  ()
+def appendChild[Ev](parent: HtmlElement[Ev], child: HtmlElement[Ev]): HtmlElement[Ev] = {
+  val newChildren = parent.children.append([child])
+  HtmlElement(parent.node, parent.tag, parent.text, parent.app, newChildren, parent.attributes, parent.handlers)
+}
+def appendChildren[Ev](parent: HtmlElement[Ev], children: List[HtmlElement[Ev]]): HtmlElement[Ev] = {
+  val newChildren = parent.children.append(children)
+  HtmlElement(parent.node, parent.tag, parent.text, parent.app, newChildren, parent.attributes, parent.handlers)
 }
 
 def addHandlers[Ev](element: HtmlElement[Ev], handlers: List[EventHandler[Ev]]): HtmlElement[Ev] = {
@@ -63,6 +69,48 @@ def addHandlers[Ev](element: HtmlElement[Ev], handlers: List[EventHandler[Ev]]):
   val newElement = HtmlElement(element.node, element.tag, element.text, element.app, element.children, element.attributes, newHandlers)
   newElement
 }
+
+
+
+interface ServerMessage {
+  def success(): Unit
+  def error(msg: String): Unit
+}
+def checkResponse(response: String): Unit / ServerMessage = {
+  with on[OutOfBounds].default { consoleLog("Index out of bounds") };
+  with on[WrongFormat].default { consoleLog("Wrong Format") };
+
+  var length = response.length
+  var res = response.substring(1, length - 1)
+  val list = res.split(":")
+
+  val key = list.get(0)
+  val value = list.get(1)
+  if (key == "\"success\"" && value == "true") {
+    do success()
+  } else if (key == "\"error\"") {
+    do error(value)
+  } else {
+    do error("Something went wrong")
+  }
+}
+def handleServerResponse(response: String) {f: () => Unit}: Unit = {
+  try {
+    checkResponse(response)
+  } with ServerMessage {
+    def success() = {
+      f()
+      resume(())
+    }
+    def error(msg: String) = {
+      consoleError(msg)
+      alert(msg)
+      resume(())
+    }
+  }
+}
+
+
 
 def toggleDisplay(node: Node): Unit = {
   val currentDisplay = node.getStyleValue("display")
@@ -92,95 +140,3 @@ def toggleDisplay(node: Node, show: Bool, mode: String): Unit = {
     ()
   }
 }
-
-def toggleAddMenu(section: String, show: Bool) = {
-  val addFlatmate = getElementById(section ++ "AddMenu")
-  addFlatmate match {
-    case Some(node) => {
-      node.toggleDisplay(show)
-    }
-    case None() => ()
-  }
-  val addButton = getElementById(section ++ "AddButton")
-  addButton match {
-    case Some(node) => {
-      node.toggleDisplay(show == false)
-    }
-    case None() => ()
-  }
-}
-
-def toggleEditMenu(section: String, entryName: String) = {
-  val container = getElementById(section ++ "Edit")
-  container match {
-    case Some(node) => {
-      val children = node.getChildren().toList()
-      children.foreach { child =>
-        if (child.getID() == entryName ++ "Edit") {
-          child.toggleDisplay(true, "flex")
-        }
-        else {
-          child.toggleDisplay(false)
-        }
-      }
-      ()
-    }
-    case None() => ()
-  }
-}
-
-
-
-interface ServerMessage {
-  def success(): Unit
-  def error(msg: String): Unit
-}
-
-def checkResponse(response: String): Unit / ServerMessage = {
-  with on[OutOfBounds].default { consoleLog("Index out of bounds") };
-  with on[WrongFormat].default { consoleLog("Wrong Format") };
-
-  var length = response.length
-  var res = response.substring(1, length - 1)
-  val list = res.split(":")
-
-  val key = list.get(0)
-  val value = list.get(1)
-  if (key == "\"success\"" && value == "true") {
-    do success()
-  } else if (key == "\"error\"") {
-    do error(value)
-  } else {
-    do error("Something went wrong")
-  }
-}
-
-def handleServerResponse(response: String) {f: () => Unit}: Unit = {
-  try {
-    checkResponse(response)
-  } with ServerMessage {
-    def success() = {
-      f()
-      resume(())
-    }
-    def error(msg: String) = {
-      consoleError(msg)
-      alert(msg)
-      resume(())
-    }
-  }
-}
-
-
-
-interface State[St] {
-  def getState(): St
-  def setState(s: St): Unit
-}
-
-// Handle the `State` effect using a `Ref` (global mutable reference)
-def statefully[R, St](r: Ref[St]) { prog: () => R / State[St] }: R =
-  try { prog() } with State[St] {
-    def getState() = resume(r.get())
-    def setState(newState) = { r.set(newState); resume(()) }
-  }

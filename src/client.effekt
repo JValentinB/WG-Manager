@@ -1,4 +1,4 @@
-// Based on Exercise5
+// Based on Exercise 5 of the Effekt course
 module client
 
 import src/utils/dom
@@ -13,16 +13,11 @@ import ref
 import string
 
 type Event {
+  UIInteraction(action: Action);
+  UIReset();
   SwitchSection(section: String);
-  ShowAddMenu(section: String);
-  HideAddMenu(section: String);
 
-  ShowEditMenu(action: Action);
-  HideEditMenu();
-
-  FlatmateChange(action: Action);
-
-  AddTask(name: Node, desc: Node, schedule: Node);
+  AddTask(name: Node, desc: Node, schedule: Node, lastDone: Node);
   AddConsumable(name: Node, desc: Node);
   AddFlatmate(input: Node);
 
@@ -30,27 +25,26 @@ type Event {
   DeleteConsumable(name: String);
   DeleteFlatmate(name: String);
 
-  UpdateTask(oldName: String, newName: Node, desc: Node, schedule: Node);
-  UpdateConsumable(oldName: String, newName: Node, desc: Node);
+  UpdateTask(oldName: String, newName: Node, desc: Node, schedule: Node, lastDone: Node);
+  UpdateConsumable(oldName: String, newName: Node, desc: Node, urgency: Node);
   UpdateFlatmate(oldName: String, newName: Node);
 
   TaskDone(taskName: String, flatmateName: String);
   TaskAssign(taskName: String, flatmateName: String);
   TaskUnassign(taskName: String, flatmateName: String);
+
+  ConsumableCountUp(consumableName: String, flatmateName: String);
+  ConsumableAssign(consumableName: String, flatmateName: String);
+  ConsumableUnassign(consumableName: String, flatmateName: String);
 }
 
 interface Model {
+  def uiInteraction(action: Action): Unit
+  def uiReset(): Unit
   def switchSection(section: String): Unit
-  def showAddMenu(section: String): Unit
-  def hideAddMenu(section: String): Unit
-
-  def showEditMenu(action: Action): Unit
-  def hideEditMenu(): Unit
-
-  def flatmateChange(action: Action): Unit
 }
 interface DataModel {
-  def addTask(name: Node, desc: Node, schedule: Node): Unit
+  def addTask(name: Node, desc: Node, schedule: Node, lastDone: Node): Unit
   def addConsumable(name: Node, desc: Node): Unit
   def addFlatmate(input: Node): Unit
 
@@ -58,13 +52,17 @@ interface DataModel {
   def deleteConsumable(name: String): Unit
   def deleteFlatmate(name: String): Unit
 
-  def updateTask(oldName: String, newName: Node, desc: Node, schedule: Node): Unit
-  def updateConsumable(oldName: String, newName: Node, desc: Node): Unit
+  def updateTask(oldName: String, newName: Node, desc: Node, schedule: Node, lastDone: Node): Unit
+  def updateConsumable(oldName: String, newName: Node, desc: Node, urgency: Node): Unit
   def updateFlatmate(oldName: String, newName: Node): Unit
 
   def taskDone(taskName: String, flatmateName: String): Unit
   def taskAssign(taskName: String, flatmateName: String): Unit
   def taskUnassign(taskName: String, flatmateName: String): Unit
+
+  def consumableCountUp(consumableName: String, flatmateName: String): Unit
+  def consumableAssign(consumableName: String, flatmateName: String): Unit
+  def consumableUnassign(consumableName: String, flatmateName: String): Unit
 }
 
 def run(root: Node, app: Application[Event]): Unit = app match {
@@ -122,7 +120,7 @@ def run(root: Node, app: Application[Event]): Unit = app match {
         messages.foreach { ev =>
           update(ev)
           ev match {
-            case AddTask(_, _, _) => render()
+            case AddTask(_, _, _, _) => render()
             case AddConsumable(_, _) => render()
             case AddFlatmate(_) => render()
 
@@ -130,15 +128,19 @@ def run(root: Node, app: Application[Event]): Unit = app match {
             case DeleteConsumable(_) => render()
             case DeleteFlatmate(_) => render()
 
-            case UpdateTask(_, _, _, _) => render()
-            case UpdateConsumable(_, _, _) => render()
+            case UpdateTask(_, _, _, _, _) => render()
+            case UpdateConsumable(_, _, _, _) => render()
             case UpdateFlatmate(_, _) => render()
 
             case TaskDone(_, _) => render()
             case TaskAssign(_, _) => render()
             case TaskUnassign(_, _) => render()
 
-            case HideEditMenu() => render()
+            case ConsumableCountUp(_, _) => render()
+            case ConsumableAssign(_, _) => render()
+            case ConsumableUnassign(_, _) => render()
+
+            case UIReset() => render()
 
             case _ => ()
           }
@@ -153,20 +155,15 @@ def run(root: Node, app: Application[Event]): Unit = app match {
 
 def dispatch(msg: Event) = {
   msg match {
+    case UIInteraction(action) => do uiInteraction(action)
+    case UIReset() => do uiReset()
     case SwitchSection(section) => do switchSection(section)
-    case ShowAddMenu(section) => do showAddMenu(section)
-    case HideAddMenu(section) => do hideAddMenu(section)
-
-    case ShowEditMenu(action) => do showEditMenu(action)
-    case HideEditMenu() => do hideEditMenu()
-
-    case FlatmateChange(action) => do flatmateChange(action)
     case _ => ()
   }
 }
 def dispatchData(msg: Event) = {
   msg match {
-    case AddTask(name, desc, schedule) => do addTask(name, desc, schedule)
+    case AddTask(name, desc, schedule, lastDone) => do addTask(name, desc, schedule, lastDone)
     case AddConsumable(name, desc) => do addConsumable(name, desc)
     case AddFlatmate(input) => do addFlatmate(input) 
 
@@ -174,13 +171,17 @@ def dispatchData(msg: Event) = {
     case DeleteConsumable(name) => do deleteConsumable(name)  
     case DeleteFlatmate(name) => do deleteFlatmate(name)
 
-    case UpdateTask(oldName, newName, desc, schedule) => do updateTask(oldName, newName, desc, schedule)
-    case UpdateConsumable(oldName, newName, desc) => do updateConsumable(oldName, newName, desc)
+    case UpdateTask(oldName, newName, desc, schedule, lastDone) => do updateTask(oldName, newName, desc, schedule, lastDone)
+    case UpdateConsumable(oldName, newName, desc, urgency) => do updateConsumable(oldName, newName, desc, urgency)
     case UpdateFlatmate(oldName, newName) => do updateFlatmate(oldName, newName)
 
     case TaskDone(taskName, flatmateName) => do taskDone(taskName, flatmateName)
     case TaskAssign(taskName, flatmateName) => do taskAssign(taskName, flatmateName)
     case TaskUnassign(taskName, flatmateName) => do taskUnassign(taskName, flatmateName)
+
+    case ConsumableCountUp(consumableName, flatmateName) => do consumableCountUp(consumableName, flatmateName)
+    case ConsumableAssign(consumableName, flatmateName) => do consumableAssign(consumableName, flatmateName)
+    case ConsumableUnassign(consumableName, flatmateName) => do consumableUnassign(consumableName, flatmateName)
     case _ => ()
   }
 }
@@ -188,6 +189,17 @@ def dispatchData(msg: Event) = {
 def mainController[R] { prog: => R / Model }: R =
   try { prog() }
   with Model {
+    def uiInteraction(action: Action) = action match {
+      case Action(f) => {
+        f()
+        resume(())
+      }
+    }
+    def uiReset() = {
+      // simply resets the application
+      resume(())
+    }
+
     def switchSection(section: String) = {
       ["tasks", "consumables", "flatmates"].foreach { id =>
         getElementById(id ++ "Settings").foreach { node =>
@@ -206,38 +218,11 @@ def mainController[R] { prog: => R / Model }: R =
       }
       resume(())
     }
-
-    def showAddMenu(section: String) = {
-      toggleAddMenu(section, true)
-      resume(())
-    }
-    def hideAddMenu(section: String) = {
-      toggleAddMenu(section, false)
-      resume(())
-    }
-
-    def showEditMenu(action: Action) = action match {
-      case Action(f) => {
-        f()
-        resume(())
-      }
-    }
-    def hideEditMenu() = {
-      // simply resets the application
-      resume(())
-    }
-
-    def flatmateChange(action: Action) = action match {
-      case Action(f) => {
-        f()
-        resume(())
-      }
-    }
 }
 
 
 def runApp(): Unit = {
-  // request the database file 
+  // request the WG Manager data
   var database in global = fetchDatabase("/database")
   var flatmates in global = database.getFlatmates()
   var tasks in global = database.getTasks()
@@ -258,12 +243,17 @@ def runApp(): Unit = {
   def dataController[R] { prog: => R / DataModel }: R = {
     try { prog() }
     with DataModel {
-      def addTask(name: Node, desc: Node, schedule: Node) = {
+      def addTask(name: Node, desc: Node, schedule: Node, lastDone: Node) = {
         val taskName = name.getValue()
         val taskDesc = desc.getValue()
         val taskSchedule = schedule.getValue()
+        val taskLastDone = lastDone.getValue().datestringToTimestamp()
+
         if (taskName != "" && taskDesc != "" && taskSchedule != "") {
-          val response = post("/addTask", "{\"name\":\"" ++ taskName ++ "\",\"description\":\"" ++ taskDesc ++ "\",\"schedule\":" ++ taskSchedule ++ "}")
+          val response = post(
+            "/addTask", 
+            "{\"name\":\"" ++ taskName ++ "\",\"description\":\"" ++ taskDesc ++ "\",\"schedule\":" ++ taskSchedule ++ ",\"lastDone\":" ++ show(taskLastDone) ++ "}"
+          )
           handleServerResponse(response) {
             updateDatabase()
             updateDataCategoryFromDatabase("tasks")
@@ -319,10 +309,55 @@ def runApp(): Unit = {
         resume(())
       }
 
-      def updateTask(oldName: String, newName: Node, desc: Node, schedule: Node) = {
+      def updateTask(oldName: String, newName: Node, desc: Node, schedule: Node, lastDone: Node) = {
+        val name = newName.getValue()
+        val description = desc.getValue().escapeJsonString()
+        val schedule = schedule.getValue()
+        val lastDone = lastDone.getValue().datestringToTimestamp()
+
+        if (name == "" || description == "" || schedule == "") {
+          alert("Please enter a name, description and schedule")
+        } else {
+          var response = ""
+          if (oldName == name) {
+            response = post(
+              "/updateTask", 
+              "{\"name\":\"" ++ name ++ "\",\"description\":\"" ++ description ++ "\",\"schedule\":" ++ schedule ++ ",\"lastDone\":" ++ show(lastDone) ++ "}"
+            )
+          } else {
+            response = post(
+              "/renameTask", 
+              "{\"oldName\":\"" ++ oldName ++ "\",\"newName\":\"" ++ name ++ "\",\"description\":\"" ++ description ++ "\",\"schedule\":" ++ schedule ++ ",\"lastDone\":" ++ show(lastDone) ++ "}"
+            )
+          }
+
+          handleServerResponse(response) {
+            updateDatabase()
+            updateDataCategoryFromDatabase("tasks")
+          }
+        }
         resume(())
       }
-      def updateConsumable(oldName: String, newName: Node, desc: Node) = {
+      def updateConsumable(oldName: String, newName: Node, desc: Node, urgency: Node) = {
+        val name = newName.getValue()
+        val description = desc.getValue().escapeJsonString()
+        val urgency = urgency.getAttribute("data-value")
+
+        if (name == "" || description == "") {
+          alert("Please enter a name and description")
+        } else {
+          var response = ""
+          if (oldName == name) {
+            response = post("/updateConsumable", "{\"name\":\"" ++ name ++ "\",\"description\":\"" ++ description ++ "\",\"urgency\":" ++ urgency ++ "}")
+          } else {
+            response = post("/renameConsumable", "{\"oldName\":\"" ++ oldName ++ "\",\"newName\":\"" ++ name ++ "\",\"description\":\"" ++ description ++ "\",\"urgency\":" ++ urgency ++ "}")
+          }
+
+          handleServerResponse(response) {
+            updateDatabase()
+            updateDataCategoryFromDatabase("consumables")
+          }
+        }
         resume(())
       }
       def updateFlatmate(oldName: String, newName: Node) = {
@@ -338,7 +373,14 @@ def runApp(): Unit = {
             color = card.getAttribute("data-value")
             ()
           }
-          val response = post("/updateFlatmate", "{\"oldName\":\"" ++ oldName ++ "\",\"newName\":\"" ++ name ++ "\",\"color\":\"" ++ color ++ "\"}")
+          
+          var response = ""
+          if (oldName == name) {
+            response = post("/updateFlatmate", "{\"name\":\"" ++ name ++ "\",\"color\":\"" ++ color ++ "\"}")
+          } else {
+            response = post("/renameFlatmate", "{\"oldName\":\"" ++ oldName ++ "\",\"newName\":\"" ++ name ++ "\",\"color\":\"" ++ color ++ "\"}")
+          }
+
           handleServerResponse(response) {
             updateDatabase()
             updateDataCategoryFromDatabase("flatmates")
@@ -371,11 +413,38 @@ def runApp(): Unit = {
         }
         resume(())
       }
+
+      def consumableCountUp(consumableName: String, flatmateName: String) = {
+        val response = post("/consumableCountUp", "{\"consumableName\":\"" ++ consumableName ++ "\",\"flatmateName\":\"" ++ flatmateName ++ "\"}")
+        handleServerResponse(response) {
+          updateDatabase()
+          updateDataCategoryFromDatabase("consumables")
+        }
+        resume(())
+      }
+      def consumableAssign(consumableName: String, flatmateName: String) = {
+        val response = post("/consumableAssign", "{\"consumableName\":\"" ++ consumableName ++ "\",\"flatmateName\":\"" ++ flatmateName ++ "\"}")
+        handleServerResponse(response) {
+          updateDatabase()
+          updateDataCategoryFromDatabase("consumables")
+        }
+        resume(())
+      }
+      def consumableUnassign(consumableName: String, flatmateName: String) = {
+        val response = post("/consumableUnassign", "{\"consumableName\":\"" ++ consumableName ++ "\",\"flatmateName\":\"" ++ flatmateName ++ "\"}")
+        handleServerResponse(response) {
+          updateDatabase()
+          updateDataCategoryFromDatabase("consumables")
+        }
+        resume(())
+      }
     }
   }
 
 
+
   def viewNavigationBar(): HtmlElement[Event] / Model = {
+
     val tasksButton = button(svg("tasks"), [], 
       [Attribute("style", stylesNavBar("navButtonActive")), Attribute("id", "tasksButton")], 
       [OnClick(SwitchSection("tasks"))], None()
@@ -406,10 +475,10 @@ def runApp(): Unit = {
     navBar
   }
   def viewAddButton(section: String): HtmlElement[Event] / Model = {
-    val plus = div("+", [], [Attribute("style", "position: absolute; top: -25%; left: 47%;")], [], None())
+    val plus = div("+", [], [Attribute("style", "position: absolute; top: -25%; left: 46.25%;")], [], None())
     val addButton = button("", [plus], 
       [Attribute("style", styles("addButton")), Attribute("id", section ++ "AddButton")], 
-      [OnClick(ShowAddMenu(section))], None()
+      [], None()
     )
     addButton
   }
@@ -430,17 +499,34 @@ def runApp(): Unit = {
       [], None()
     )
 
+    // date input
+    val currentDate = getCurrentTimeWeb().timestampToDatestring()
+    val lastDoneSpan = div("Last done on:", [], 
+      [Attribute("style", stylesInfos("infoSpan") ++ "height: 100px; color: #757575; padding: 0;")], 
+      [], None()
+    )
+    val lastDoneInput = input("", [],
+      [Attribute("style", styles("textInput") ++ "flex: 1; padding: 0;"), Attribute("value", currentDate), Attribute("type", "date")],
+      [], None()
+    )
+    val lastDoneWrapper = div("", [lastDoneSpan, lastDoneInput], 
+      [Attribute("style", stylesInfos("infoWrapper") ++ "width: auto; margin-top: 10px; padding-left: 5%; padding-right: 5%;")], 
+      [], None()
+    )
+
+    val inputContainer = div("", [nameInput, descriptionInput, scheduleInput, lastDoneWrapper], [Attribute("style", styles("textInputContainer"))], [], None())
+
     val confirmButton = button("Add", [], 
       [Attribute("style", styles("groupButton"))], 
-      [OnClick(AddTask(nameInput.node, descriptionInput.node, scheduleInput.node))], None()
+      [OnClick(AddTask(nameInput.node, descriptionInput.node, scheduleInput.node, lastDoneInput.node))], None()
     )
     val cancelButton = button("Cancel", [], 
       [Attribute("style", styles("groupButton"))], 
-      [OnClick(HideAddMenu("tasks"))], None()
+      [OnClick(UIReset())], None()
     )
     val buttonContainer = div("", [confirmButton, cancelButton], [Attribute("style", styles("buttonGroup"))], [], None())
     val container = div("", 
-      [nameInput, descriptionInput, scheduleInput, buttonContainer], 
+      [inputContainer, buttonContainer], 
       [Attribute("style", styles("addMenu")), Attribute("id", "tasksAddMenu")],
       [], None()
     )
@@ -455,6 +541,7 @@ def runApp(): Unit = {
       [Attribute("style", styles("textInput")), Attribute("placeholder", "Enter consumable description")], 
       [], None()
     )
+    val inputContainer = div("", [nameInput, descriptionInput], [Attribute("style", styles("textInputContainer"))], [], None())
 
     val confirmButton = button("Add", [], 
       [Attribute("style", styles("groupButton"))], 
@@ -462,11 +549,11 @@ def runApp(): Unit = {
     )
     val cancelButton = button("Cancel", [], 
       [Attribute("style", styles("groupButton"))], 
-      [OnClick(HideAddMenu("consumables"))], None()
+      [OnClick(UIReset())], None()
     )
     val buttonContainer = div("", [confirmButton, cancelButton], [Attribute("style", styles("buttonGroup"))], [], None())
     val container = div("", 
-      [nameInput, descriptionInput, buttonContainer], 
+      [inputContainer, buttonContainer], 
       [Attribute("style", styles("addMenu")), Attribute("id", "consumablesAddMenu")],
       [], None()
     )
@@ -477,6 +564,7 @@ def runApp(): Unit = {
       [Attribute("style", styles("textInput")), Attribute("placeholder", "Enter flatmate name")], 
       [], None()
     )
+    val inputContainer = div("", [input], [Attribute("style", styles("textInputContainer"))], [], None())
 
     val confirmButton = button("Add", [], 
       [Attribute("style", styles("groupButton"))], 
@@ -484,40 +572,171 @@ def runApp(): Unit = {
     )
     val cancelButton = button("Cancel", [], 
       [Attribute("style", styles("groupButton"))], 
-      [OnClick(HideAddMenu("flatmates"))], None()
+      [OnClick(UIReset())], None()
     )
     val buttonContainer = div("", [confirmButton, cancelButton], [Attribute("style", styles("buttonGroup"))], [], None())
     val container = div("", 
-      [input, buttonContainer], 
+      [inputContainer, buttonContainer], 
       [Attribute("style", styles("addMenu")), Attribute("id", "flatmatesAddMenu")],
       [], None()
     )
     container
   }
 
+  def viewTaskInfos(task: Task): HtmlElement[Event] / { Model, DataModel } = {
+    // Task Name
+    val infoName = input("", [], 
+      [Attribute("style", stylesInfos("infoText")), Attribute("value", task.name)], 
+      [], None())
+    // Task Description
+    val infoDesc = textarea(task.description, [], 
+      [Attribute("style", stylesInfos("infoTextArea")), Attribute("value", task.description), Attribute("spellcheck", "false")], 
+      [], None())
 
-  def viewEditTask(task: Task): HtmlElement[Event] / { Model, DataModel } = {
-    div(task.name, [], [Attribute("style", stylesSection("title"))], [], None())
+    // Task Schedule
+    val scheduleSpan = div("Schedule:", [], [Attribute("style", stylesInfos("infoSpan"))], [], None())
+    val infoSchedule = input("", [], 
+      [Attribute("style", stylesInfos("infoText")), Attribute("value", show(task.schedule)), 
+        Attribute("type", "number"), Attribute("min", "1"), Attribute("max", "365")], 
+      [], None())
+    val daysSpan = div("Days", [], [Attribute("style", stylesInfos("infoSpan"))], [], None())
+    val scheduleWrapper = div("", [scheduleSpan, infoSchedule, daysSpan], [Attribute("style", stylesInfos("infoWrapper") ++ "margin-top: 10px;")], [], None())
+
+    // Task Last Done
+    val lastDoneDate = task.lastDone.timestampToDatestring()
+    val lastDoneSpan = div("Last done:", [], [Attribute("style", stylesInfos("infoSpan"))], [], None())
+    val infoLastDone = input("", [], 
+      [Attribute("style", stylesInfos("infoText") ++ "flex: 2;"), Attribute("value", lastDoneDate), 
+        Attribute("type", "date")], 
+      [], None())
+    val lastDoneWrapper = div("", [lastDoneSpan, infoLastDone], [Attribute("style", stylesInfos("infoWrapper") ++ "margin-top: 10px;")], [], None())
+
+    // Save Button
+    val saveButton = button("Save", [], 
+      [Attribute("style", stylesInfos("infoButton") ++ "border-top: 5px solid #ccc;")], 
+      [OnClick(UpdateTask(task.name, infoName.node, infoDesc.node, infoSchedule.node, infoLastDone.node))], None()
+    )
+
+    div("", [infoName, infoDesc, scheduleWrapper, lastDoneWrapper, saveButton], [Attribute("style", stylesInfos("infoContainer"))], [], None())
   }
-  def viewEditConsumable(consumable: Consumable): HtmlElement[Event] / { Model, DataModel } = {
-    div(consumable.name, [], [Attribute("style", stylesSection("title"))], [], None())
+  def viewConsumableInfos(consumable: Consumable): HtmlElement[Event] / { Model, DataModel } = {
+    // Consumable Name
+    val infoName = input("", [], 
+      [Attribute("style", stylesInfos("infoText")), Attribute("value", consumable.name)], 
+      [], None())
+    // Consumable Description
+    val infoDesc = textarea(consumable.description, [], 
+      [Attribute("style", stylesInfos("infoTextArea")), Attribute("value", consumable.description), Attribute("spellcheck", "false")], 
+      [], None())
+
+    // Consumable Urgency
+    var notUrgentStyle = "border-radius: 15px;"
+    var urgentStyle = "border-radius: 15px;"
+    var veryUrgentStyle = "border-radius: 15px;"
+    if (consumable.urgency == 0) {
+      notUrgentStyle = notUrgentStyle ++ "background-color: #ccc;"
+    } else if (consumable.urgency == 1) {
+      urgentStyle = urgentStyle ++ "background-color: #ccc;"
+    } else if (consumable.urgency == 2) {
+      veryUrgentStyle = veryUrgentStyle ++ "background-color: #ccc;"
+    }
+
+    var notUrgentButton = button("Not Urgent", [], 
+      [Attribute("style", stylesInfos("infoButton") ++ notUrgentStyle)], 
+      [], None())
+    var urgentButton = button("Urgent", [], 
+      [Attribute("style", stylesInfos("infoButton") ++ urgentStyle)], 
+      [], None())
+    var veryUrgentButton = button("Very Urgent", [], 
+      [Attribute("style", stylesInfos("infoButton") ++ veryUrgentStyle)], 
+      [], None()) 
+    var urgencyWrapper = div("", [], [Attribute("style", stylesInfos("infoWrapper") ++ "margin-bottom: 10px;")], [], None())
+
+    val notUrgentNode = notUrgentButton.node
+    val urgentNode = urgentButton.node
+    val veryUrgentNode = veryUrgentButton.node
+    val wrapperNode = urgencyWrapper.node
+    val onNotUrgent = Action(box {
+      notUrgentNode.setStyle("background-color", "#ccc")
+      urgentNode.setStyle("background-color", "transparent")
+      veryUrgentNode.setStyle("background-color", "transparent")
+      wrapperNode.setAttribute("data-value", "0")
+      ()
+    })
+    val onUrgent = Action(box {
+      notUrgentNode.setStyle("background-color", "transparent")
+      urgentNode.setStyle("background-color", "#ccc")
+      veryUrgentNode.setStyle("background-color", "transparent")
+      wrapperNode.setAttribute("data-value", "1")
+      ()
+    })
+    val onVeryUrgent = Action(box {
+      notUrgentNode.setStyle("background-color", "transparent")
+      urgentNode.setStyle("background-color", "transparent")
+      veryUrgentNode.setStyle("background-color", "#ccc")
+      wrapperNode.setAttribute("data-value", "2")
+      ()
+    })
+    notUrgentButton = notUrgentButton.addHandlers([OnClick(UIInteraction(onNotUrgent))])
+    urgentButton = urgentButton.addHandlers([OnClick(UIInteraction(onUrgent))])
+    veryUrgentButton = veryUrgentButton.addHandlers([OnClick(UIInteraction(onVeryUrgent))])
+    urgencyWrapper = urgencyWrapper.appendChildren([notUrgentButton, urgentButton, veryUrgentButton])
+
+    // Save Button
+    val saveButton = button("Save", [], 
+      [Attribute("style", stylesInfos("infoButton") ++ "border-top: 5px solid #ccc;")], 
+      [OnClick(UpdateConsumable(consumable.name, infoName.node, infoDesc.node, urgencyWrapper.node))], None()
+    )
+
+    div("", [infoName, infoDesc, urgencyWrapper, saveButton], [Attribute("style", stylesInfos("infoContainer"))], [], None())
+  }
+  def viewInfos(infoContainer: HtmlElement[Event]): HtmlElement[Event] / { Model, DataModel } = {
+    var showInfosButton = button(svg("arrowdown"), [], 
+      [Attribute("style", stylesInfos("infoButton"))], 
+      [], None()
+    )
+    var hideInfosButton = button(svg("arrowup"), [], 
+      [Attribute("style", stylesInfos("infoButton") ++ "display: none;")], 
+      [], None()
+    )
+
+    val showInfosNode = showInfosButton.node
+    val hideInfosNode = hideInfosButton.node
+    val onShowInfos = Action(box {
+      showInfosNode.setStyle("display", "none")
+      hideInfosNode.setStyle("display", "block")
+      infoContainer.node.setStyle("display", "flex")
+      ()
+    })
+    val onHideInfos = Action(box {
+      showInfosNode.setStyle("display", "block")
+      hideInfosNode.setStyle("display", "none")
+      infoContainer.node.setStyle("display", "none")
+      ()
+    })
+
+    showInfosButton = showInfosButton.addHandlers([OnClick(UIInteraction(onShowInfos))])
+    hideInfosButton = hideInfosButton.addHandlers([OnClick(UIInteraction(onHideInfos))])
+
+    val wrapper = div("", [showInfosButton, infoContainer, hideInfosButton], [Attribute("style", styles("wrapper"))], [], None())
+    wrapper 
   }
 
   def viewSingleTask(task: Task): HtmlElement[Event] / { Model, DataModel } = {
     def assignedFlatmateCard(flatmate: Flatmate): HtmlElement[Event] / { Model, DataModel } = {
       val taskDoneButton = button("Task Done", [], 
-        [Attribute("style", stylesSection("cardButton"))], 
+        [Attribute("style", stylesCardMenu("cardButton"))], 
         [OnClick(TaskDone(task.name, flatmate.name))], None()
       )
-      val bottomGroup = div("", [taskDoneButton], [Attribute("style", styles("buttonGroup") ++ "bottom: -15px;")], [], None())
-      val bottomGroupParent = div("", [bottomGroup], [Attribute("style", stylesSection("bottomButtonGroup"))], [], None())
+      val topGroup = div("", [taskDoneButton], [Attribute("style", styles("buttonGroup") ++ "top: 0;")], [], None())
+      val topGroupParent = div("", [topGroup], [Attribute("style", stylesCardMenu("topButtonGroup"))], [], None())
 
       val unassignButton = button("Unassign", [], 
-        [Attribute("style", stylesSection("cardButton"))], 
+        [Attribute("style", stylesCardMenu("cardButton"))], 
         [OnClick(TaskUnassign(task.name, flatmate.name))], None()
       )
-      val topGroup = div("", [unassignButton], [Attribute("style", styles("buttonGroup") ++ "top: 0;")], [], None())
-      val topGroupParent = div("", [topGroup], [Attribute("style", stylesSection("topButtonGroup"))], [], None())
+      val bottomGroup = div("", [unassignButton], [Attribute("style", styles("buttonGroup") ++ "bottom: -15px;")], [], None())
+      val bottomGroupParent = div("", [bottomGroup], [Attribute("style", stylesCardMenu("bottomButtonGroup"))], [], None())
 
       val onShowEditMenu = Action(box {
         topGroupParent.node.setStyle("top", "-100px")
@@ -526,26 +745,72 @@ def runApp(): Unit = {
       })
       div(flatmate.name, [topGroupParent, bottomGroupParent], 
         [Attribute("style", styleCard(flatmate.color))], 
-        [OnClick(ShowEditMenu(onShowEditMenu))], None()
+        [OnClick(UIInteraction(onShowEditMenu))], None()
       )
     }
     def unassignedFlatmateCard(flatmate: Flatmate): HtmlElement[Event] / { Model, DataModel } = {
       val assignButton = button("Assign", [], 
-        [Attribute("style", stylesSection("cardButton"))], 
+        [Attribute("style", stylesCardMenu("cardButton"))], 
         [OnClick(TaskAssign(task.name, flatmate.name))], None()
       )
-      val topGroup = div("", [assignButton], [Attribute("style", styles("buttonGroup") ++ "top: 0;")], [], None())
-      val topGroupParent = div("", [topGroup], [Attribute("style", stylesSection("topButtonGroup"))], [], None())
+      val bottomGroup = div("", [assignButton], [Attribute("style", styles("buttonGroup") ++ "bottom: -15px;")], [], None())
+      val bottomGroupParent = div("", [bottomGroup], [Attribute("style", stylesCardMenu("bottomButtonGroup"))], [], None())
 
       val onShowEditMenu = Action(box {
-        topGroupParent.node.setStyle("top", "-100px")
+        bottomGroupParent.node.setStyle("bottom", "-100px")
         ()
       })
-      div(flatmate.name, [topGroupParent], 
+      div(flatmate.name, [bottomGroupParent], 
         [Attribute("style", styleCard("#1b2838") ++ "border: 7px dashed #213145;")], 
-        [OnClick(ShowEditMenu(onShowEditMenu))], None()
+        [OnClick(UIInteraction(onShowEditMenu))], None()
       )
     }
+    def nextTimeDueText(): HtmlElement[Event] / { Model, DataModel } = {
+      // val nextTime = nextTimeToBeDone(task)
+      val daysUntilDue = daysUntilNextDue(task)
+      var text = ""
+      if (daysUntilDue > 0) {
+        text = "Next in " ++ show(daysUntilDue) ++ " days"
+      } else if (daysUntilDue == 0) {
+        text = "Due today!"
+      } else {
+        text = "Overdue by " ++ show(daysUntilDue * -1) ++ " days!"
+      }
+      div(text, [], [Attribute("style", stylesSection("title"))], [], None())
+    }
+    def taskInfos(): HtmlElement[Event] / { Model, DataModel } = {
+      var showInfosButton = button(svg("arrowdown"), [], 
+        [Attribute("style", stylesInfos("infoButton"))], 
+        [], None()
+      )
+      var hideInfosButton = button(svg("arrowup"), [], 
+        [Attribute("style", stylesInfos("infoButton") ++ "display: none;")], 
+        [], None()
+      )
+      val infoContainer = viewTaskInfos(task)
+
+      val showInfosNode = showInfosButton.node
+      val hideInfosNode = hideInfosButton.node
+      val onShowInfos = Action(box {
+        showInfosNode.setStyle("display", "none")
+        hideInfosNode.setStyle("display", "block")
+        infoContainer.node.setStyle("display", "flex")
+        ()
+      })
+      val onHideInfos = Action(box {
+        showInfosNode.setStyle("display", "block")
+        hideInfosNode.setStyle("display", "none")
+        infoContainer.node.setStyle("display", "none")
+        ()
+      })
+
+      showInfosButton = showInfosButton.addHandlers([OnClick(UIInteraction(onShowInfos))])
+      hideInfosButton = hideInfosButton.addHandlers([OnClick(UIInteraction(onHideInfos))])
+
+      val wrapper = div("", [showInfosButton, infoContainer, hideInfosButton], [Attribute("style", styles("wrapper"))], [], None())
+      wrapper 
+    }
+
 
     // Create a card for each flatmate assign to the task an put them in a container
     def taskMenu(): HtmlElement[Event] / { Model, DataModel } = {
@@ -559,6 +824,7 @@ def runApp(): Unit = {
         ()
       }
 
+      // First show the assigned flatmates and then the unassigned
       var flatmateCards = empty[HtmlElement[Event]]()
       task.assignedFlatmates.foreach { flatmateName =>
         val flatmate = database.getFlatmateByName(flatmateName)
@@ -572,73 +838,132 @@ def runApp(): Unit = {
         ()
       }
 
-      val nextTime = nextTimeToBeDone(task)
-      val title = div(task.name++ " - Next on " ++ nextTime, [], [Attribute("style", stylesSection("title"))], [], None())
+      val title = div(task.name, [], [Attribute("style", stylesSection("title") ++ "font-size: 60px;")], [], None())
+      val nextTime = nextTimeDueText()
+      val infos = viewTaskInfos(task).viewInfos()
       val cardsContainer = div("", flatmateCards, [Attribute("style", stylesSection("cardsContainer"))], [], None())
-      div("", [title, cardsContainer], [Attribute("style", stylesSection("entryContainer"))], [], None())
+      div("", [title, nextTime, cardsContainer, infos], [Attribute("style", stylesSection("entryContainer"))], [], None())
     }
 
     div("", [taskMenu()], [Attribute("id", task.name ++ "Settings"), Attribute("style", "display: block; width: 100%;")], [], None())
   }
   def viewSingleConsumable(consumable: Consumable): HtmlElement[Event] / { Model, DataModel } = {
-    // Create a card for each flatmate assign to the task an put them in a container
-    def consumableMenu(): HtmlElement[Event] / { Model, DataModel } = {
-      var flatmateCards = empty[HtmlElement[Event]]()
-      consumable.count.foreach { case (name, count) =>
-        val flatmate = database.getFlatmateByName(name)
+    def assignedFlatmateCard(flatmate: Flatmate, count: Int): HtmlElement[Event] / { Model, DataModel } = {
+      val counterText = div(show(count), [], [Attribute("style", stylesCardMenu("counterText"))], [], None())
+      
+      val unassignButton = button("Unassign", [], 
+        [Attribute("style", stylesCardMenu("cardButton"))], 
+        [OnClick(ConsumableUnassign(consumable.name, flatmate.name))], None()
+      )
+      val bottomGroup = div("", [unassignButton], [Attribute("style", styles("buttonGroup") ++ "bottom: -15px;")], [], None())
+      val bottomGroupParent = div("", [bottomGroup], [Attribute("style", stylesCardMenu("bottomButtonGroup"))], [], None())
 
-        val flatmateCard = div(name, [], [Attribute("style", styleCard(flatmate.color))], [], None())
+      val upButton = button("+", [], 
+        [Attribute("style", stylesCardMenu("cardButton") ++ "font-size: 80px; font-weight: bold;")], 
+        [OnClick(ConsumableCountUp(consumable.name, flatmate.name))], None()
+      )
+      val topGroup = div("", [upButton], [Attribute("style", styles("buttonGroup") ++ "top: -10px;")], [], None())
+      val topGroupParent = div("", [topGroup], [Attribute("style", stylesCardMenu("topButtonGroup"))], [], None())
+
+      val onShowEditMenu = Action(box {
+        topGroupParent.node.setStyle("top", "-100px")
+        bottomGroupParent.node.setStyle("bottom", "-100px")
+        ()
+      })
+      div(flatmate.name, [counterText, topGroupParent, bottomGroupParent], 
+        [Attribute("style", styleCard(flatmate.color))], 
+        [OnClick(UIInteraction(onShowEditMenu))], None()
+      )
+    }
+    def unassignedFlatmateCard(flatmate: Flatmate): HtmlElement[Event] / { Model, DataModel } = {
+      val assignButton = button("Assign", [], 
+        [Attribute("style", stylesCardMenu("cardButton"))], 
+        [OnClick(ConsumableAssign(consumable.name, flatmate.name))], None()
+      )
+      val bottomGroup = div("", [assignButton], [Attribute("style", styles("buttonGroup") ++ "bottom: -15px;")], [], None())
+      val bottomGroupParent = div("", [bottomGroup], [Attribute("style", stylesCardMenu("bottomButtonGroup"))], [], None())
+
+      val onShowEditMenu = Action(box {
+        bottomGroupParent.node.setStyle("bottom", "-100px")
+        ()
+      })
+      div(flatmate.name, [bottomGroupParent], 
+        [Attribute("style", styleCard("#1b2838") ++ "border: 7px dashed #213145;")], 
+        [OnClick(UIInteraction(onShowEditMenu))], None()
+      )
+    }
+    def urgencyText(): HtmlElement[Event] / { Model, DataModel } = {
+      if (consumable.urgency == 0) {
+        div("Not Urgent", [], [Attribute("style", stylesSection("title"))], [], None())
+      } else if (consumable.urgency == 1) {
+        div("Urgent", [], [Attribute("style", stylesSection("title"))], [], None())
+      } else {
+        div("Very Urgent", [], [Attribute("style", stylesSection("title"))], [], None())
+      }
+    }
+
+    // Create a card for each flatmate assign to the consumable an put them in a container
+    def consumableMenu(): HtmlElement[Event] / { Model, DataModel } = {
+      var flatmates = database.getFlatmates()
+      var unassignedFlatmates = empty[Flatmate]()
+      flatmates.foreach { flatmate =>
+        val isAssigned = consumable.count.any { case (name, _) => name == flatmate.name }
+        if (isAssigned == false) { // How do you negate a boolean???
+          unassignedFlatmates = unassignedFlatmates.append([flatmate])
+        }
+        ()
+      }
+
+      // First show the assigned flatmates and then the unassigned
+      var flatmateCards = empty[HtmlElement[Event]]()
+      consumable.count.foreach { case (flatmateName, count) =>
+        val flatmate = database.getFlatmateByName(flatmateName)
+        val flatmateCard = assignedFlatmateCard(flatmate, count)
+        flatmateCards = flatmateCards.append([flatmateCard])
+        ()  
+      }
+      unassignedFlatmates.foreach { flatmate =>
+        val flatmateCard = unassignedFlatmateCard(flatmate)
         flatmateCards = flatmateCards.append([flatmateCard])
         ()
       }
 
-      val title = div(consumable.name, [], [Attribute("style", stylesSection("title"))], [], None())
+      val title = div(consumable.name, [], [Attribute("style", stylesSection("title") ++ "font-size: 60px;")], [], None())
+      val urgency = urgencyText()
+      val viewInfos = viewConsumableInfos(consumable).viewInfos()
       val cardsContainer = div("", flatmateCards, [Attribute("style", stylesSection("cardsContainer"))], [], None())
-      div("", [title, cardsContainer], [Attribute("style", stylesSection("entryContainer"))], [], None())
+      div("", [title, urgency, cardsContainer, viewInfos], [Attribute("style", stylesSection("entryContainer"))], [], None())
     }
 
-    val consumableApp = Application[Event](
-      box { (ev) => 
-        with mainController
-        with dataController
-        ev.dispatch()
-        ev.dispatchData()
-      },
-      box { 
-        with mainController
-        with dataController
-        consumableMenu()
-      }
-    )
-    div("", [], [Attribute("id", consumable.name ++ "Settings"), Attribute("style", "display: block; width: 100%;")], [], Some(consumableApp))
+    div("", [consumableMenu()], [Attribute("id", consumable.name ++ "Settings"), Attribute("style", "display: block; width: 100%;")], [], None())
   }
   def viewSingleFlatmate(flatmate: Flatmate): HtmlElement[Event] / { Model, DataModel } = {
     var textInput = input("", [], 
-      [Attribute("style", stylesSection("cardTextInput")), Attribute("value", flatmate.name)],
+      [Attribute("style", stylesCardMenu("cardTextInput")), Attribute("value", flatmate.name)],
       [], None()
     )
 
     val confirmButton = button(svg("confirm"), [],
-      [Attribute("style", stylesSection("cardButton"))],
+      [Attribute("style", stylesCardMenu("cardButton"))],
       [OnClick(UpdateFlatmate(flatmate.name, textInput.node))], None()
     ) 
     val cancelButton = button(svg("cancel"), [],
-      [Attribute("style", stylesSection("cardButton"))],
-      [OnClick(HideEditMenu())], None()
+      [Attribute("style", stylesCardMenu("cardButton"))],
+      [OnClick(UIReset())], None()
     )
     val bottomGroup = div("", [confirmButton, cancelButton], [Attribute("style", styles("buttonGroup") ++ "bottom: -20px;")], [], None())
-    val bottomGroupParent = div("", [bottomGroup], [Attribute("style", stylesSection("bottomButtonGroup"))], [], None()) 
+    val bottomGroupParent = div("", [bottomGroup], [Attribute("style", stylesCardMenu("bottomButtonGroup"))], [], None()) 
 
     val confirmDeleteButton = button(svg("confirmVertical"), [],
-      [Attribute("style", stylesSection("cardButtonVertical"))],
+      [Attribute("style", stylesCardMenu("cardButtonVertical"))],
       [OnClick(DeleteFlatmate(flatmate.name))], None()
     )
     val cancelDeleteButton = button(svg("cancelVertical"), [],
-      [Attribute("style", stylesSection("cardButtonVertical"))],
-      [OnClick(HideEditMenu())], None()
+      [Attribute("style", stylesCardMenu("cardButtonVertical"))],
+      [OnClick(UIReset())], None()
     )
     val rightGroup = div("", [confirmDeleteButton, cancelDeleteButton], [Attribute("style", styles("buttonGroupVertical"))], [], None())
-    val rightGroupParent = div("", [rightGroup], [Attribute("style", stylesSection("rightButtonGroup"))], [], None())
+    val rightGroupParent = div("", [rightGroup], [Attribute("style", stylesCardMenu("rightButtonGroup"))], [], None())
 
 
     val onColorChange = Action(box {
@@ -659,20 +984,20 @@ def runApp(): Unit = {
     })
 
     var colorButton = button(svg("color"), [],
-      [Attribute("style", stylesSection("cardButton"))],
-      [OnClick(FlatmateChange(onColorChange))], None()
+      [Attribute("style", stylesCardMenu("cardButton"))],
+      [OnClick(UIInteraction(onColorChange))], None()
     )
     val deleteButton = button(svg("delete"), [],
-      [Attribute("style", stylesSection("cardButton"))],
-      [OnClick(FlatmateChange(onDelete))], None()
+      [Attribute("style", stylesCardMenu("cardButton"))],
+      [OnClick(UIInteraction(onDelete))], None()
     )
     val topGroup = div("", [colorButton, deleteButton], [Attribute("style", styles("buttonGroup"))], [], None())
-    val topGroupParent = div("", [topGroup], [Attribute("style", stylesSection("topButtonGroup"))], [], None())
+    val topGroupParent = div("", [topGroup], [Attribute("style", stylesCardMenu("topButtonGroup"))], [], None())
 
 
     val textInputNode = textInput.node
     val onShowEditMenu = Action(box {
-      textInputNode.setAttribute("style", stylesSection("cardTextInputEnabled"))
+      textInputNode.setAttribute("style", stylesCardMenu("cardTextInputEnabled"))
 
       topGroupParent.node.setStyle("top", "-100px")
       ()
@@ -682,10 +1007,10 @@ def runApp(): Unit = {
       ()
     })
 
-    textInput = textInput.addHandlers([OnClick(ShowEditMenu(onShowEditMenu)), OnChange(FlatmateChange(onTextChange))])
+    textInput = textInput.addHandlers([OnClick(UIInteraction(onShowEditMenu)), OnChange(UIInteraction(onTextChange))])
     val card = div("", [textInput, topGroupParent, bottomGroupParent, rightGroupParent], 
       [Attribute("style", styleCard(flatmate.color)), Attribute("id", flatmate.name ++ "Card"), Attribute("data-value", flatmate.color)], 
-      [OnClick(ShowEditMenu(onShowEditMenu))], None()
+      [OnClick(UIInteraction(onShowEditMenu))], None()
     )
 
     card
@@ -703,8 +1028,18 @@ def runApp(): Unit = {
       val listContainer = div("", taskMenus, [Attribute("style", stylesSection("listContainer"))], [], None())
 
       // Create the button to add a new task
-      val addButton = viewAddButton("tasks")
+      var addButton = viewAddButton("tasks")
       val addTaskMenu = viewAddTask()
+
+      val addButtonNode = addButton.node
+      val addTaskMenuNode = addTaskMenu.node
+      val onShowMenu = Action(box {
+        addButtonNode.setStyle("display", "none")
+        addTaskMenuNode.setStyle("display", "flex")
+        ()
+      })
+      addButton = addButton.addHandlers([OnClick(UIInteraction(onShowMenu))])
+
       val addContainer = div("", [addButton, addTaskMenu], [Attribute("style", styles("addContainer"))], [], None())
       
       div("", [listContainer, addContainer], [Attribute("style", stylesSection("listContainer"))], [], None())
@@ -737,8 +1072,18 @@ def runApp(): Unit = {
       val listContainer = div("", consumableMenus, [Attribute("style", stylesSection("listContainer"))], [], None())
 
       // Create the button to add a new consumable
-      val addButton = viewAddButton("consumables")
+      var addButton = viewAddButton("consumables")
       val addConsumableMenu = viewAddConsumable()
+
+      val addButtonNode = addButton.node
+      val addConsumableMenuNode = addConsumableMenu.node
+      val onShowMenu = Action(box {
+        addButtonNode.setStyle("display", "none")
+        addConsumableMenuNode.setStyle("display", "flex")
+        ()
+      })
+      addButton = addButton.addHandlers([OnClick(UIInteraction(onShowMenu))])
+
       val addContainer = div("", [addButton, addConsumableMenu], [Attribute("style", styles("addContainer"))], [], None())
       
       div("", [listContainer, addContainer], [Attribute("style", stylesSection("listContainer"))], [], None())
@@ -762,26 +1107,35 @@ def runApp(): Unit = {
   def viewFlatmates(): HtmlElement[Event] / { Model, DataModel } = { 
 
     def menu(): HtmlElement[Event] / { Model, DataModel } = {
-      var cards = empty[HtmlElement[Event]]()
-      var editMenus = empty[HtmlElement[Event]]()
-      flatmates.foreach { flatmate =>
-        val flatmateCard = viewSingleFlatmate(flatmate)
-        cards = cards.append([flatmateCard])
-        // val editFlatmate = viewEditFlatmate(flatmate)
-        // editMenus = editMenus.append([editFlatmate])
-        ()
+      val flatmateNumber = flatmates.size()
+      var menuContainer = div("", [], [Attribute("style", "display: none")], [], None())
+      if (flatmateNumber > 0) {
+        var cards = empty[HtmlElement[Event]]()
+        flatmates.foreach { flatmate =>
+          val flatmateCard = viewSingleFlatmate(flatmate)
+          cards = cards.append([flatmateCard])
+          ()
+        }
+        val cardsContainer = div("", cards, [Attribute("style", stylesSection("cardsContainer"))], [], None())
+        val title = div("Flatmates", [], [Attribute("style", stylesSection("title") ++ "font-size: 60px;")], [], None())
+        menuContainer = div("", [title, cardsContainer], [Attribute("style", stylesSection("entryContainer"))], [], None())
       }
-      val cardsContainer = div("", cards, [Attribute("style", stylesSection("cardsContainer"))], [], None())
-      val title = div("Flatmates", [], [Attribute("style", stylesSection("title"))], [], None())
-      val menuContainer = div("", [title, cardsContainer], [Attribute("style", stylesSection("entryContainer"))], [], None())
 
-      val editContainer = div("", editMenus, [Attribute("style", "display: block; width: 100%;"), Attribute("id", "flatmateEdit")], [], None())
-
-      val addButton = viewAddButton("flatmates")
+      var addButton = viewAddButton("flatmates")
       val addFlatmateMenu = viewAddFlatmate()
+
+      val addButtonNode = addButton.node
+      val addFlatmateMenuNode = addFlatmateMenu.node
+      val onShowMenu = Action(box {
+        addButtonNode.setStyle("display", "none")
+        addFlatmateMenuNode.setStyle("display", "flex")
+        ()
+      })
+      addButton = addButton.addHandlers([OnClick(UIInteraction(onShowMenu))])
+
       val addContainer = div("", [addButton, addFlatmateMenu], [Attribute("style", styles("addContainer"))], [], None())
 
-      div("", [menuContainer, editContainer, addContainer], [Attribute("style", stylesSection("listContainer"))], [], None())
+      div("", [menuContainer, addContainer], [Attribute("style", stylesSection("listContainer"))], [], None())
     }
 
     val flatmateApp = Application[Event](

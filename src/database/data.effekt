@@ -14,8 +14,8 @@ record Flatmate (
 record Task (
   name: String,
   description: String,
-  schedule: Int,
-  lastDone: Int,
+  schedule: Int,                  // In days
+  lastDone: Int,                  // Timestamp integer in milliseconds
   assignedFlatmates: List[String] // List of flatmate names in order of turn
 )
 record Consumable (
@@ -75,6 +75,7 @@ def toConsumable(list: List[String]): Consumable = {
   }
 }
 
+// Functions to modify task data
 def assignFlatmate(task: Task, flatmate: String): Task = {
   val assigned = task.assignedFlatmates.append([flatmate])
   Task(task.name, task.description, task.schedule, task.lastDone, assigned)
@@ -88,7 +89,14 @@ def renameFlatmate(task: Task, oldFlatmate: String, newFlatmate: String): Task =
   val assigned = task.assignedFlatmates.updateAt(flatmateIndex) { name => newFlatmate }
   Task(task.name, task.description, task.schedule, task.lastDone, assigned)
 }
+def taskDone(task: Task, flatmate: String): Task = {
+  val lastDone = getCurrentTime()
+  val flatmateIndex = task.assignedFlatmates.indexOf(flatmate) { (name1, name2) => name1 == name2 }
+  val assigned = task.assignedFlatmates.deleteAt(flatmateIndex)
+  Task(task.name, task.description, task.schedule, lastDone, assigned.append([flatmate]))
+}
 
+// Functions to modify consumable data
 def assignFlatmate(consumable: Consumable, flatmate: String): Consumable = {
   val count = consumable.count.append([(flatmate, 0)])
   Consumable(consumable.name, consumable.description, count, consumable.urgency)
@@ -110,23 +118,48 @@ def renameFlatmate(consumable: Consumable, oldFlatmate: String, newFlatmate: Str
   }
   Consumable(consumable.name, consumable.description, count, consumable.urgency)
 }
-
-def taskDone(task: Task, flatmate: String): Task = {
-  val lastDone = getCurrentTime()
-  val flatmateIndex = task.assignedFlatmates.indexOf(flatmate) { (name1, name2) => name1 == name2 }
-  val assigned = task.assignedFlatmates.deleteAt(flatmateIndex)
-  Task(task.name, task.description, task.schedule, lastDone, assigned.append([flatmate]))
+def countUp(consumable: Consumable, flatmate: String): Consumable = {
+  val countIndex = consumable.count.indexOf(flatmate) { (name1, count) => 
+    count match {
+      case (name2, _) => name1 == name2
+    }
+  }
+  val count = consumable.count.updateAt(countIndex) { entry => 
+    entry match {
+      case (name, count) => (name, count + 1)
+    }
+  }
+  Consumable(consumable.name, consumable.description, count, consumable.urgency)
 }
 
+
+// MISC DATA FUNCTIONS_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+// Only usable in web
 def nextTimeToBeDone(task: Task): String = {
   val nextTime = task.lastDone.addDays(task.schedule)
   nextTime.timestampToFormattedDate()
 }
+// Only usable in web
+def daysUntilNextDue(task: Task): Int = {
+  val nextTime = task.lastDone.addDays(task.schedule)
+  val currentTime = getCurrentTimeWeb()
+
+  // Normalize timestamps to midnight
+  def normalizeToMidnight(timestamp: Int): Int = {
+    val millisecondsInADay = 24 * 60 * 60 * 1000
+    (timestamp / millisecondsInADay) * millisecondsInADay
+  }
+
+  val normalizedNextTime = normalizeToMidnight(nextTime)
+  val normalizedCurrentTime = normalizeToMidnight(currentTime)
+
+  // Calculate the difference in days
+  (normalizedNextTime - normalizedCurrentTime) / (24 * 60 * 60 * 1000)
+}
 
 def emptyCountList(flatmates: List[String]): List[(String, Int)] = flatmates.map { flatmate => (flatmate, 0) }
 
-
-
+// Print functions_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 def printFlatmate(flatmate: Flatmate): Unit = {
   val string = "Flatmate: " ++ flatmate.name ++ "\n"
   println(string)

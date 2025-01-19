@@ -2,15 +2,32 @@ module misc
 
 extern pure def getCurrentTime(): Int =
   jsNode "Date.now()"
-  
+
+extern pure def getCurrentTimeWeb(): Int =
+  jsWeb "Date.now()"
+
+extern pure def timestampToDatestring(timestamp: Int): String =
+  jsWeb """new Date(${timestamp}).toISOString().split('T')[0]"""
+
 extern pure def timestampToFormattedDate(timestamp: Int): String =
   jsWeb """new Date(${timestamp}).toLocaleDateString()"""
+
+extern pure def datestringToTimestamp(date: String): Int =
+  jsWeb """new Date(${date}).getTime()"""
 
 extern pure def addDays(date: Int, days: Int): Int =
   jsWeb """new Date(${date}).getTime() + ${days} * 24 * 60 * 60 * 1000"""
 
 extern pure def getWindowWidth(): Int =
   jsWeb "window.innerWidth"
+
+extern pure def escapeJsonString(input: String): String =
+  jsWeb """${input}.replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t')
+  """
 
   
 
