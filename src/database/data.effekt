@@ -131,6 +131,19 @@ def countUp(consumable: Consumable, flatmate: String): Consumable = {
   }
   Consumable(consumable.name, consumable.description, count, consumable.urgency)
 }
+def sortCount(consumable: Consumable): List[(String, Int)] = {
+  val count = consumable.count
+  val sortedCount = count.sortBy() { (entry1, entry2) =>
+    entry1 match {
+      case (_, count1) => {
+        entry2 match {
+          case (_, count2) => count1 <= count2
+        }
+      }
+    }
+  }
+  sortedCount
+}
 
 
 // MISC DATA FUNCTIONS_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 

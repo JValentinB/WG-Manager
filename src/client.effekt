@@ -990,8 +990,9 @@ def runApp(): Unit = {
       }
 
       // First show the assigned flatmates and then the unassigned
+      val sortedCount = sortCount(consumable)
       var flatmateCards = empty[HtmlElement[Event]]()
-      consumable.count.foreach { case (flatmateName, count) =>
+      sortedCount.foreach { case (flatmateName, count) =>
         val flatmate = database.getFlatmateByName(flatmateName)
         val flatmateCard = assignedFlatmateCard(flatmate, count)
         flatmateCards = flatmateCards.append([flatmateCard])
