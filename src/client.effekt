@@ -65,6 +65,39 @@ interface DataModel {
   def consumableUnassign(consumableName: String, flatmateName: String): Unit
 }
 
+def dispatch(msg: Event) = {
+  msg match {
+    case UIInteraction(action) => do uiInteraction(action)
+    case UIReset() => do uiReset()
+    case SwitchSection(section) => do switchSection(section)
+    case _ => ()
+  }
+}
+def dispatchData(msg: Event) = {
+  msg match {
+    case AddTask(name, desc, schedule, lastDone) => do addTask(name, desc, schedule, lastDone)
+    case AddConsumable(name, desc) => do addConsumable(name, desc)
+    case AddFlatmate(input) => do addFlatmate(input) 
+
+    case DeleteTask(name) => do deleteTask(name)
+    case DeleteConsumable(name) => do deleteConsumable(name)  
+    case DeleteFlatmate(name) => do deleteFlatmate(name)
+
+    case UpdateTask(oldName, newName, desc, schedule, lastDone) => do updateTask(oldName, newName, desc, schedule, lastDone)
+    case UpdateConsumable(oldName, newName, desc, urgency) => do updateConsumable(oldName, newName, desc, urgency)
+    case UpdateFlatmate(oldName, newName) => do updateFlatmate(oldName, newName)
+
+    case TaskDone(taskName, flatmateName) => do taskDone(taskName, flatmateName)
+    case TaskAssign(taskName, flatmateName) => do taskAssign(taskName, flatmateName)
+    case TaskUnassign(taskName, flatmateName) => do taskUnassign(taskName, flatmateName)
+
+    case ConsumableCountUp(consumableName, flatmateName) => do consumableCountUp(consumableName, flatmateName)
+    case ConsumableAssign(consumableName, flatmateName) => do consumableAssign(consumableName, flatmateName)
+    case ConsumableUnassign(consumableName, flatmateName) => do consumableUnassign(consumableName, flatmateName)
+    case _ => ()
+  }
+}
+
 def run(root: Node, app: Application[Event]): Unit = app match {
   case Application(update, view) =>
     val inbox = ref[List[Event]](Nil())
@@ -153,74 +186,6 @@ def run(root: Node, app: Application[Event]): Unit = app match {
     requestIdleCallback(box loop)
 }
 
-def dispatch(msg: Event) = {
-  msg match {
-    case UIInteraction(action) => do uiInteraction(action)
-    case UIReset() => do uiReset()
-    case SwitchSection(section) => do switchSection(section)
-    case _ => ()
-  }
-}
-def dispatchData(msg: Event) = {
-  msg match {
-    case AddTask(name, desc, schedule, lastDone) => do addTask(name, desc, schedule, lastDone)
-    case AddConsumable(name, desc) => do addConsumable(name, desc)
-    case AddFlatmate(input) => do addFlatmate(input) 
-
-    case DeleteTask(name) => do deleteTask(name)
-    case DeleteConsumable(name) => do deleteConsumable(name)  
-    case DeleteFlatmate(name) => do deleteFlatmate(name)
-
-    case UpdateTask(oldName, newName, desc, schedule, lastDone) => do updateTask(oldName, newName, desc, schedule, lastDone)
-    case UpdateConsumable(oldName, newName, desc, urgency) => do updateConsumable(oldName, newName, desc, urgency)
-    case UpdateFlatmate(oldName, newName) => do updateFlatmate(oldName, newName)
-
-    case TaskDone(taskName, flatmateName) => do taskDone(taskName, flatmateName)
-    case TaskAssign(taskName, flatmateName) => do taskAssign(taskName, flatmateName)
-    case TaskUnassign(taskName, flatmateName) => do taskUnassign(taskName, flatmateName)
-
-    case ConsumableCountUp(consumableName, flatmateName) => do consumableCountUp(consumableName, flatmateName)
-    case ConsumableAssign(consumableName, flatmateName) => do consumableAssign(consumableName, flatmateName)
-    case ConsumableUnassign(consumableName, flatmateName) => do consumableUnassign(consumableName, flatmateName)
-    case _ => ()
-  }
-}
-
-def mainController[R] { prog: => R / Model }: R =
-  try { prog() }
-  with Model {
-    def uiInteraction(action: Action) = action match {
-      case Action(f) => {
-        f()
-        resume(())
-      }
-    }
-    def uiReset() = {
-      // simply resets the application
-      resume(())
-    }
-
-    def switchSection(section: String) = {
-      ["tasks", "consumables", "flatmates"].foreach { id =>
-        getElementById(id ++ "Settings").foreach { node =>
-          node.toggleDisplay(section == id)
-        }
-
-        getElementById(id ++ "Button").foreach { node =>
-          if (section == id) {
-            node.setAttribute("style", stylesNavBar("navButtonActive"))
-          } else {
-            node.setAttribute("style", stylesNavBar("navButtonInactive"))
-          }
-          ()
-        }
-        ()
-      }
-      resume(())
-    }
-}
-
-
 def runApp(): Unit = {
   // request the WG Manager data
   var database in global = fetchDatabase("/database")
@@ -240,6 +205,41 @@ def runApp(): Unit = {
     }
   }
 
+
+  def mainController[R] { prog: => R / Model }: R = {
+    try { prog() }
+    with Model {
+      def uiInteraction(action: Action) = action match {
+        case Action(f) => {
+          f()
+          resume(())
+        }
+      }
+      def uiReset() = {
+        // simply resets the application
+        resume(())
+      }
+
+      def switchSection(section: String) = {
+        ["tasks", "consumables", "flatmates"].foreach { id =>
+          getElementById(id ++ "Settings").foreach { node =>
+            node.toggleDisplay(section == id)
+          }
+
+          getElementById(id ++ "Button").foreach { node =>
+            if (section == id) {
+              node.setAttribute("style", stylesNavBar("navButtonActive"))
+            } else {
+              node.setAttribute("style", stylesNavBar("navButtonInactive"))
+            }
+            ()
+          }
+          ()
+        }
+        resume(())
+      }
+    }
+  }
   def dataController[R] { prog: => R / DataModel }: R = {
     try { prog() }
     with DataModel {
@@ -519,6 +519,35 @@ def runApp(): Unit = {
     deleteCancelButton = deleteCancelButton.addHandlers([OnClick(UIInteraction(onDeleteCancel))])
     deleteWrapper = deleteWrapper.appendChildren([deleteConfirmButton, deleteCancelButton])
     div("", [deleteButton, deleteWrapper], [Attribute("style", styles("wrapper") ++ "border-top: 5px solid #ccc;")], [], None())
+  }
+
+  def viewTutorial(text: String): HtmlElement[Event] / Model = {
+    var showTutorialButton = button(svg("tutorial"), [], 
+      [Attribute("style", stylesTutorial("tutorialButton"))], 
+      [], None()
+    )
+    var tutorialText = div(text, [],
+      [Attribute("style", stylesTutorial("tutorialText"))], 
+      [], None()
+    )
+
+    val showTutorialButtonNode = showTutorialButton.node
+    val tutorialTextNode = tutorialText.node
+    val onTutorialClick = Action(box {
+      showTutorialButtonNode.setStyle("display", "none")
+      tutorialTextNode.setStyle("display", "block")
+      ()
+    })
+    val onTutorialCancel = Action(box {
+      showTutorialButtonNode.setStyle("display", "flex")
+      tutorialTextNode.setStyle("display", "none")
+      ()
+    })
+
+    showTutorialButton = showTutorialButton.addHandlers([OnClick(UIInteraction(onTutorialClick))])
+    tutorialText = tutorialText.addHandlers([OnClick(UIInteraction(onTutorialCancel))])
+    
+    div("", [showTutorialButton, tutorialText], [Attribute("style", stylesTutorial("tutorialContainer"))], [], None())
   }
 
 
@@ -1011,11 +1040,13 @@ def runApp(): Unit = {
     val rightGroup = div("", [confirmDeleteButton, cancelDeleteButton], [Attribute("style", styles("buttonGroupVertical"))], [], None())
     val rightGroupParent = div("", [rightGroup], [Attribute("style", stylesCardMenu("rightButtonGroup"))], [], None())
 
-
+    def colorPalette = makeColorPalette(flatmate.color) {global}
     val onColorChange = Action(box {
       bottomGroupParent.node.setStyle("bottom", "-100px")
       
-      val color = colorPalette()
+      val color = colorPalette.getColor()
+      colorPalette.increment()
+
       getElementById(flatmate.name ++ "Card").foreach { card => 
         card.setStyle("background-color", color)
         card.setStyle("outline", "4px solid " ++ color)
@@ -1065,6 +1096,17 @@ def runApp(): Unit = {
 
   def viewTasks(): HtmlElement[Event] / { Model, DataModel } = {
     def menu(): HtmlElement[Event] / { Model, DataModel } = {
+      val tutorialText = """
+        <span style="font-size: 35px;">Click on the Add Button to create a new task.</span><br>
+        <span style="color: #999;">
+        You can set a schedule for each task.<br>
+        It shows when the task was last done and when it's due next.
+        Once a flatmate completes it, they move to the end of the list, and the timer resets. 
+        </span>
+      """
+      val tutorialContainer = viewTutorial(tutorialText)
+
+      // Create the list of tasks
       var taskMenus = empty[HtmlElement[Event]]()
       tasks.foreach { task =>
           val taskMenu = viewSingleTask(task)
@@ -1088,7 +1130,7 @@ def runApp(): Unit = {
 
       val addContainer = div("", [addButton, addTaskMenu], [Attribute("style", styles("addContainer"))], [], None())
       
-      div("", [listContainer, addContainer], [Attribute("style", stylesSection("listContainer"))], [], None())
+      div("", [tutorialContainer, listContainer, addContainer], [Attribute("style", stylesSection("listContainer"))], [], None())
     }
     
     
@@ -1109,6 +1151,15 @@ def runApp(): Unit = {
   }
   def viewConsumables(): HtmlElement[Event] / Model = {
     def menu(): HtmlElement[Event] / { Model, DataModel } = {
+      val tutorialText = """
+        <span style="font-size: 35px;">Click on the Add Button to create a new counter.</span><br>
+        <span style="color: #999;">
+        This can be used to count how many times a flatmate has bought a shared consumable or a task that needs to be done irregularly.<br>
+        </span>
+      """
+      val tutorialContainer = viewTutorial(tutorialText)
+
+      // Create the list of consumables
       var consumableMenus = empty[HtmlElement[Event]]()
       consumables.foreach { consumable =>
           val consumableMenu = viewSingleConsumable(consumable)
@@ -1132,7 +1183,7 @@ def runApp(): Unit = {
 
       val addContainer = div("", [addButton, addConsumableMenu], [Attribute("style", styles("addContainer"))], [], None())
       
-      div("", [listContainer, addContainer], [Attribute("style", stylesSection("listContainer"))], [], None())
+      div("", [tutorialContainer, listContainer, addContainer], [Attribute("style", stylesSection("listContainer"))], [], None())
     }
     
     val consumableApp = Application[Event](
@@ -1153,6 +1204,16 @@ def runApp(): Unit = {
   def viewFlatmates(): HtmlElement[Event] / { Model, DataModel } = { 
 
     def menu(): HtmlElement[Event] / { Model, DataModel } = {
+      val tutorialText = """
+        <span style="font-size: 35px;">Click on the Add Button to add a new flatmate.</span><br>
+        <span style="color: #999;">
+        Or click on a flatmate card to edit or delete it.<br>
+        New flatmates will be automatically added to all tasks. 
+        </span>
+      """
+      val tutorialContainer = viewTutorial(tutorialText)
+
+      // Create the flatmates menu
       val flatmateNumber = flatmates.size()
       var menuContainer = div("", [], [Attribute("style", "display: none")], [], None())
       if (flatmateNumber > 0) {
@@ -1167,6 +1228,7 @@ def runApp(): Unit = {
         menuContainer = div("", [title, cardsContainer], [Attribute("style", stylesSection("entryContainer"))], [], None())
       }
 
+      // Create the button to add a new flatmate
       var addButton = viewAddButton("flatmates")
       val addFlatmateMenu = viewAddFlatmate()
 
@@ -1178,10 +1240,9 @@ def runApp(): Unit = {
         ()
       })
       addButton = addButton.addHandlers([OnClick(UIInteraction(onShowMenu))])
-
       val addContainer = div("", [addButton, addFlatmateMenu], [Attribute("style", styles("addContainer"))], [], None())
 
-      div("", [menuContainer, addContainer], [Attribute("style", stylesSection("listContainer"))], [], None())
+      div("", [tutorialContainer, menuContainer, addContainer], [Attribute("style", stylesSection("listContainer"))], [], None())
     }
 
     val flatmateApp = Application[Event](
@@ -1214,7 +1275,7 @@ def runApp(): Unit = {
   }
 
 
-
+  // Initialize the root element
   documentBody.setAttribute("style", styles("body"))
   val appDiv = getElementById("app").getOrElse { 
     val newDiv = createElement("div").setAttribute("id", "app")

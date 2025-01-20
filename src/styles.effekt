@@ -472,6 +472,57 @@ def stylesInfos(id: String): String = {
   }
 }
 
+def stylesTutorial(id: String): String = {
+  id match {
+    case "tutorialContainer" => """
+      display: flex;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      justify-content: flex-start; 
+      align-items: center;
+      width: 100%;
+      margin-bottom: """ ++ standardMargin ++ """;
+
+      background: """ ++ normalGrey ++ """;
+      border-radius: 15px;
+    """
+    case "tutorialButton" => """
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex: 1;
+      height: 75px;
+      padding: 0; 
+      
+      background: transparent;
+      border: none;
+      color: white;
+      cursor: pointer;
+      font-size: 50px;
+    """
+    case "tutorialText" => """
+      position: relative;
+      display: none;
+      flex: 1;
+      height: auto;
+      padding: 10px;
+
+      background: transparent;
+      border: none;
+      color: #eee;
+      font-family: monospace;
+      font-size: 30px;
+      text-align: center;
+      cursor: pointer;
+    """
+    case _ => {
+      consoleLog("unknown id: " ++ id)
+      ""
+    }
+  }
+}
+
 def styleCard(color: String): String = {
   """
     position: relative;

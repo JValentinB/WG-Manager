@@ -58,15 +58,15 @@ extern pure def random(min: Int, max: Int): Int =
 extern pure def randomWeb(min: Int, max: Int): Int =
   jsWeb """Math.floor(Math.random() * (${max} - ${min}) + ${min})"""
 
+val colors = [
+  "#f94144", "#f65838", "#f36f2d", "#f57938", "#f88246", 
+  "#f88a39", "#f89324", "#f8a52d", "#f8bc44", "#ddc456", 
+  "#abc065", "#7fb973", "#5bb081", "#44a58b", "#49998c", 
+  "#4e8d8e", "#52808f", "#547590", "#3d7998", "#277da1"
+]
 def colorPalette(usedColors: List[String]): String = {
   with on[OutOfBounds].default { println("Index out of bounds"); "#f94144" };
   with on[WrongFormat].default { println("Wrong Format"); "#f94144" };
-  val colors = [
-    "#f94144", "#f65838", "#f36f2d", "#f57938", "#f88246", 
-    "#f88a39", "#f89324", "#f8a52d", "#f8bc44", "#ddc456", 
-    "#abc065", "#7fb973", "#5bb081", "#44a58b", "#49998c", 
-    "#4e8d8e", "#52808f", "#547590", "#3d7998", "#277da1"
-  ]
   val availableColors = colors.filter { color => usedColors.any { usedColor => usedColor == color } }
   val randomIndex = random(0, availableColors.size() - 1)
   availableColors.get(randomIndex)
@@ -74,12 +74,28 @@ def colorPalette(usedColors: List[String]): String = {
 def colorPalette(): String = {
   with on[OutOfBounds].default { println("Index out of bounds"); "#f94144" };
   with on[WrongFormat].default { println("Wrong Format"); "#f94144" };
-  val colors = [
-    "#f94144", "#f65838", "#f36f2d", "#f57938", "#f88246", 
-    "#f88a39", "#f89324", "#f8a52d", "#f8bc44", "#ddc456", 
-    "#abc065", "#7fb973", "#5bb081", "#44a58b", "#49998c", 
-    "#4e8d8e", "#52808f", "#547590", "#3d7998", "#277da1"
-  ]
   val randomIndex = randomWeb(0, colors.size() - 1)
   colors.get(randomIndex)
+}
+
+interface ColorPalette {
+  def getColor(): String
+  def increment(): Unit
+}
+
+def makeColorPalette(startColor: String) {r: Region} = {
+  var colorNumber in r = colors.size()
+  var index in r = colors.indexOf(startColor) { (startColor, color) => startColor == color } + 1
+
+  def palette = new ColorPalette {
+    def getColor() = {
+      with on[OutOfBounds].default { println("Index out of bounds"); "#f94144" };
+      with on[WrongFormat].default { println("Wrong Format"); "#f94144" };
+      colors.get(index)
+    }
+    def increment() = {
+      index = (index + 1).mod(colorNumber)
+    }
+  }
+  box palette
 }

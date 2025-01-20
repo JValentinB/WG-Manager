@@ -58,5 +58,15 @@ def svg(id: String): String = id match {
   <path fill="white" d="M8 4l-6.32 6.32 1.67 1.68 4.65-4.65 4.65 4.65 1.67-1.68-6.32-6.32z"></path>
   </svg>
   """ // https://www.svgrepo.com/svg/371130/chevron-up-small
-  case _ => ""
+  case "tutorial" => """
+  <svg width="60px" height="60px" viewBox="-1 -1 18 18" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <path fill="white" stroke="white" stroke-width="1" d="M8 1c3.9 0 7 3.1 7 7s-3.1 7-7 7-7-3.1-7-7 3.1-7 7-7zM8 0c-4.4 0-8 3.6-8 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8v0z"></path>
+  <path fill="white" d="M7 6h2v7h-2v-7z"></path>
+  <path fill="white" d="M7 3h2v2h-2v-2z"></path>
+  </svg>
+  """ // https://www.svgrepo.com/svg/371350/info-circle-o
+  case _ => {
+    println("Unknown icon: " ++ id)
+    ""
+  }
 }
