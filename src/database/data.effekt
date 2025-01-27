@@ -118,7 +118,7 @@ def renameFlatmate(consumable: Consumable, oldFlatmate: String, newFlatmate: Str
   }
   Consumable(consumable.name, consumable.description, count, consumable.urgency)
 }
-def countUp(consumable: Consumable, flatmate: String): Consumable = {
+def countIncrement(consumable: Consumable, flatmate: String, x: Int): Consumable = {
   val countIndex = consumable.count.indexOf(flatmate) { (name1, count) => 
     count match {
       case (name2, _) => name1 == name2
@@ -126,7 +126,7 @@ def countUp(consumable: Consumable, flatmate: String): Consumable = {
   }
   val count = consumable.count.updateAt(countIndex) { entry => 
     entry match {
-      case (name, count) => (name, count + 1)
+      case (name, count) => (name, count + x)
     }
   }
   Consumable(consumable.name, consumable.description, count, consumable.urgency)

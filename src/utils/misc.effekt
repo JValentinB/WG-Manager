@@ -1,5 +1,7 @@
 module misc 
 
+import option
+
 extern pure def getCurrentTime(): Int =
   jsNode "Date.now()"
 
@@ -53,10 +55,22 @@ def indexOf[T, U](list: List[U], item: T) {equal: (T,U) => Bool}: Int = {
   index
 }
 
+def contains(str: String, substr: String): Bool = {
+  val indexOption = str.indexOf(substr)
+  indexOption match {
+    case Some(_) => true
+    case None() => false  
+  }
+}
+
+
+
 extern pure def random(min: Int, max: Int): Int =
   jsNode """Math.floor(Math.random() * (${max} - ${min}) + ${min})"""
 extern pure def randomWeb(min: Int, max: Int): Int =
   jsWeb """Math.floor(Math.random() * (${max} - ${min}) + ${min})"""
+
+
 
 val colors = [
   "#f94144", "#f65838", "#f36f2d", "#f57938", "#f88246", 

@@ -2,11 +2,7 @@
 module UI
 
 import src/utils/dom
-// import src/utils/misc
-
-import ref
 import string
-
 
 record Application[Ev](
   update: Ev => Unit at {io, global, async},

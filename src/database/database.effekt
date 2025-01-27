@@ -29,29 +29,31 @@ import src/utils/misc
 // Sqlite FFI definitions
 extern type Database
 
-extern async def databaseFileExists(filePath: String): Bool =
-  jsNode """$effekt.capture((callback) => {
-    const exists = fs.existsSync(${filePath});
-    callback(exists);
-  })"""
 
 extern async def initDatabase(): Database =
-jsNode """$effekt.capture(async (callback) => {
-    const sql = require('sql.js');
-    const initSqlJs = sql.default;
-    const SQL = await initSqlJs();
-    const db = new SQL.Database();
-    callback(db);
-  })"""
+  jsNode """$effekt.capture(async (callback) => {
+      const sql = require('sql.js');
+      const initSqlJs = sql.default;
+      const SQL = await initSqlJs();
+      const db = new SQL.Database();
+      callback(db);
+    })"""
 
-extern async def openDatabase(filePath: String): Database =
+extern async def unsafeOpenDatabase(filePath: String): Database =
   jsNode """$effekt.capture(async (callback) => {
     const sql = require('sql.js');
     const initSqlJs = sql.default;
     const SQL = await initSqlJs();
-    const fileBuffer = fs.readFileSync(${filePath});
-    const db = new SQL.Database(fileBuffer);
-    callback(db);
+
+    fs.promises.readFile(${filePath})
+      .then(fileBuffer => {
+        const db = new SQL.Database(fileBuffer);
+        callback(db);  // Return the database
+      })
+      .catch(err => {
+        console.log("File read error:", err.message);
+        callback(undefined);  // Return undefined if file doesn't exist
+      });
   })"""
 
 extern async def saveDatabase(db: Database, filePath: String): Unit =
@@ -100,14 +102,7 @@ extern async def readDataWithParams(db: Database, query: String, param: String):
     }
     callback(rows[0]);
   })"""
-
-extern async def getTableLength(db: Database, table: String): Int =
-  jsNode """$effekt.capture((callback) => {
-    const stmt = ${db}.prepare("SELECT COUNT(*) AS count FROM " + ${table});
-    stmt.step();
-    const row = stmt.getAsObject();
-    callback(row.count);
-  })"""
+  
 extern async def isEntryAvailable(db: Database, query: String, name: String): Bool =
   jsNode """$effekt.capture((callback) => {
     const stmt = ${db}.prepare(${query});
@@ -154,7 +149,12 @@ def createConsumableTable(db: Database): Unit = {
   db.createTable(query)
 }
 
+interface DatabaseMessage {
+  def clear(): Unit
+  def error(message: String): Unit
+}
 
+// I don't really like this, simply using if statements would do the trick...
 interface FlatmateHandler {
   def flatmateInDatabase(name: String): Bool
   def flatmateNotInDatabase(name: String): Bool
@@ -166,11 +166,6 @@ interface TaskHandler {
 interface ConsumableHandler {
   def consumableInDatabase(name: String): Bool
   def consumableNotInDatabase(name: String): Bool
-}
-
-interface DatabaseMessage {
-  def clear(): Unit
-  def warning(message: String): Unit
 }
 
 def isFlatmateInDatabase(db: Database, name: String): Bool / FlatmateHandler = {
@@ -204,7 +199,7 @@ def insertFlatmate(db: Database, name: String): Unit / DatabaseMessage = {
     ()
   } with FlatmateHandler {
     def flatmateInDatabase(name: String) = {
-      do warning("Flatmate " ++ name ++ " already in database. Maybe use a nickname.")
+      do error("Flatmate " ++ name ++ " already in database. Maybe use a nickname.")
       resume(true)
     }
     def flatmateNotInDatabase(name: String) = {
@@ -222,7 +217,7 @@ def insertFlatmate(db: Database, name: String): Unit / DatabaseMessage = {
           db.updateTask(updatedTask)
         } with DatabaseMessage {
           def clear() = ()
-          def warning(message: String) = println(message)
+          def error(message: String) = println(message)
         }
       }
 
@@ -233,7 +228,7 @@ def insertFlatmate(db: Database, name: String): Unit / DatabaseMessage = {
           db.updateConsumable(updatedConsumable)
         } with DatabaseMessage {
           def clear() = ()
-          def warning(message: String) = println(message)
+          def error(message: String) = println(message)
         }
       } 
       do clear()
@@ -247,7 +242,7 @@ def insertTask(db: Database, task: Task): Unit / DatabaseMessage = {
     ()
   } with TaskHandler {
     def taskInDatabase(name: String) = {
-      do warning("Task " ++ name ++ " already in database. Maybe use a different name.")
+      do error("Task " ++ name ++ " already in database. Maybe use a different name.")
       resume(true)
     }
     def taskNotInDatabase(name: String) = {
@@ -266,7 +261,7 @@ def insertConsumable(db: Database, consumable: Consumable): Unit / DatabaseMessa
     ()
   } with ConsumableHandler {
     def consumableInDatabase(name: String) = {
-      do warning("Consumable " ++ name ++ " already in database. Maybe use a different name.")
+      do error("Consumable " ++ name ++ " already in database. Maybe use a different name.")
       resume(true)
     }
     def consumableNotInDatabase(name: String) = {
@@ -293,7 +288,7 @@ def updateFlatmate(db: Database, flatmate: Flatmate): Unit / DatabaseMessage = {
       resume(true)
     }
     def flatmateNotInDatabase(name: String) = {
-      do warning("Flatmate " ++ name ++ " not in database.")
+      do error("Flatmate " ++ name ++ " not in database.")
       resume(false)
     }
   }
@@ -312,7 +307,7 @@ def updateTask(db: Database, task: Task): Unit / DatabaseMessage = {
       resume(true)
     }
     def taskNotInDatabase(name: String) = {
-      do warning("Task " ++ name ++ " not in database.")
+      do error("Task " ++ name ++ " not in database.")
       resume(false)
     }
   }
@@ -331,7 +326,7 @@ def updateConsumable(db: Database, consumable: Consumable): Unit / DatabaseMessa
       resume(true)
     }
     def consumableNotInDatabase(name: String) = {
-      do warning("Consumable " ++ name ++ " not in database.")
+      do error("Consumable " ++ name ++ " not in database.")
       resume(false)
     }
   }
@@ -350,7 +345,7 @@ def renameFlatmate(db: Database, oldName: String, flatmate: Flatmate): Unit / Da
         ()
       } with FlatmateHandler {
         def flatmateInDatabase(name: String) = {
-          do warning("Flatmate " ++ name ++ " already in database. Maybe use a nickname.")
+          do error("Flatmate " ++ name ++ " already in database. Maybe use a nickname.")
           resume(true)
         }
         def flatmateNotInDatabase(name: String) = {
@@ -364,7 +359,7 @@ def renameFlatmate(db: Database, oldName: String, flatmate: Flatmate): Unit / Da
               db.updateTask(updatedTask)
             } with DatabaseMessage {
               def clear() = ()
-              def warning(message: String) = ()
+              def error(message: String) = ()
             }
           }
 
@@ -375,7 +370,7 @@ def renameFlatmate(db: Database, oldName: String, flatmate: Flatmate): Unit / Da
               db.updateConsumable(updatedConsumable)
             } with DatabaseMessage {
               def clear() = ()
-              def warning(message: String) = println(message)
+              def error(message: String) = println(message)
             }
           }
           do clear()
@@ -385,7 +380,7 @@ def renameFlatmate(db: Database, oldName: String, flatmate: Flatmate): Unit / Da
       resume(true)
     }
     def flatmateNotInDatabase(name: String) = {
-      do warning("Flatmate " ++ name ++ " not in database.")
+      do error("Flatmate " ++ name ++ " not in database.")
       resume(false)
     }
   }
@@ -401,7 +396,7 @@ def renameTask(db: Database, oldName: String, task: Task): Unit / DatabaseMessag
         ()
       } with TaskHandler {
         def taskInDatabase(name: String) = {
-          do warning("Task " ++ name ++ " already in database. Maybe use a different name.")
+          do error("Task " ++ name ++ " already in database. Maybe use a different name.")
           resume(true)
         }
         def taskNotInDatabase(name: String) = {
@@ -416,7 +411,7 @@ def renameTask(db: Database, oldName: String, task: Task): Unit / DatabaseMessag
       resume(true)
     }
     def taskNotInDatabase(name: String) = {
-      do warning("Task " ++ name ++ " not in database.")
+      do error("Task " ++ name ++ " not in database.")
       resume(false)
     }
   }
@@ -432,7 +427,7 @@ def renameConsumable(db: Database, oldName: String, consumable: Consumable): Uni
         ()
       } with ConsumableHandler {
         def consumableInDatabase(name: String) = {
-          do warning("Consumable " ++ name ++ " already in database. Maybe use a different name.")
+          do error("Consumable " ++ name ++ " already in database. Maybe use a different name.")
           resume(true)
         }
         def consumableNotInDatabase(name: String) = {
@@ -447,7 +442,7 @@ def renameConsumable(db: Database, oldName: String, consumable: Consumable): Uni
       resume(true)
     }
     def consumableNotInDatabase(name: String) = {
-      do warning("Consumable " ++ name ++ " not in database.")
+      do error("Consumable " ++ name ++ " not in database.")
       resume(false)
     }
   }
@@ -467,7 +462,7 @@ def deleteFlatmate(db: Database, name: String): Unit = {
       db.updateTask(updatedTask)
     } with DatabaseMessage {
       def clear() = ()
-      def warning(message: String) = println(message)
+      def error(message: String) = println(message)
     }
   }
 
@@ -479,7 +474,7 @@ def deleteFlatmate(db: Database, name: String): Unit = {
       db.updateConsumable(updatedConsumable)
     } with DatabaseMessage {
       def clear() = ()
-      def warning(message: String) = println(message)
+      def error(message: String) = println(message)
     }
   }
 }
@@ -491,6 +486,7 @@ def deleteConsumable(db: Database, name: String): Unit = {
   val query = "DELETE FROM consumables WHERE name = ?"
   db.executeQuery(query, [name].fromList())
 }
+
 
 // Functions to retrieve whole tables
 def getFlatmates(db: Database): List[Flatmate] = {
@@ -529,6 +525,7 @@ def getConsumables(db: Database): List[Consumable] = {
   consumables
 }
 
+
 def getFlatmateNames(db: Database): List[String] = {
   val query = "SELECT name FROM flatmates"
   val arr = db.readData(query)
@@ -559,6 +556,7 @@ def getFlatmateColors(db: Database): List[String] = {
   }
   colors
 }
+
 
 // Functions to retrieve single entries
 def getFlatmateByName(db: Database, name: String): Flatmate = {
@@ -619,21 +617,23 @@ def getConsumableByName(db: Database, name: String): Consumable = {
 
 
 def openWGManagerDatabase(databasePath: String): Database = {
-  val dbExists = databaseFileExists(databasePath)
-  val db = if (dbExists) {
-    println("Database file exists, opening...")
-    openDatabase(databasePath)
-  } else {
-    println("Database file does not exist, creating...")
-    val initDb = initDatabase()
-    initDb.createFlatmateTable()
-    initDb.createTaskTable()
-    initDb.createConsumableTable()
-
-    saveDatabase(initDb, databasePath)
-    initDb
+  val unsafeDatabase = unsafeOpenDatabase(databasePath)
+  val databaseOption = undefinedToOption(unsafeDatabase)
+  databaseOption match {
+    case Some(db) => {
+      println("Existing database found.")
+      db
+    }  
+    case None() => {
+      println("Database not found. Creating new database.")
+      val initDb = initDatabase()
+      initDb.createFlatmateTable()
+      initDb.createTaskTable()
+      initDb.createConsumableTable()
+      saveDatabase(initDb, databasePath)
+      initDb
+    }
   }
-  db
 }
 
 
@@ -645,7 +645,7 @@ def main() = {
     db.updateConsumable(Consumable("Importante!!!", "", [], 0))
   } with DatabaseMessage {
     def clear() = ()
-    def warning(message: String) = {
+    def error(message: String) = {
       println(message)
     }
   }

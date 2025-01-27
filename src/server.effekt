@@ -13,13 +13,26 @@ import src/utils/misc
 extern type Server
 extern type Request
 extern type Response
+extern type Buffer
 
+// Server request and response FFI definitions
 extern io def createServer(handler: (Request, Response) => Unit at {io, global, async}): Server =
   jsNode "require('http').createServer((req, res) => $effekt.runToplevel((ks, k) => ${handler}(req, res, ks, k)))"
 
 extern io def listen(server: Server, port: Int, host: String): Unit =
   jsNode "${server}.listen(${port}, ${host})"
 
+extern io def writeHead(res: Response, status: Int, contentType: String): Unit =
+  jsNode "${res}.writeHead(${status}, { 'Content-Type': ${contentType}, 'Access-Control-Allow-Origin': '*' })"
+
+extern io def end(res: Response, content: String): Unit =
+  jsNode "${res}.end(${content})"
+extern io def end(res: Response, content: Buffer): Unit = 
+  jsNode "${res}.end(${content})"
+extern io def end(res: Response, content: Database): Unit =
+  jsNode "${res}.end(Buffer.from(${content}.export()));"
+
+// Server misc FFI definitions
 extern pure def getUrl(req: Request): String =
   jsNode "${req}.url"
 
@@ -49,16 +62,25 @@ extern def getJsonValueAsInt(json: String, key: String): Int =
   jsNode """parseInt(JSON.parse(${json})[${key}])"""
 
 
-extern io def writeHead(res: Response, status: Int, contentType: String): Unit =
-  jsNode "${res}.writeHead(${status}, { 'Content-Type': ${contentType}, 'Access-Control-Allow-Origin': '*' })"
+// Used to read image files from the filesystem
+extern async def unsafeReadBuffer(path: String): Buffer =
+  jsNode """$effekt.capture(callback => {
+    require('fs').promises.readFile(${path})
+      .then(buffer => {
+        callback(buffer);
+      })
+      .catch(err => {
+        console.log("File read error:", err.message);
+        callback(undefined);
+      });
+  })"""
 
-extern io def end(res: Response, content: String): Unit =
-  jsNode "${res}.end(${content})"
+def readBuffer(path: String): Option[Buffer] = {
+  val unsafeBuffer = unsafeReadBuffer(path)
+  undefinedToOption(unsafeBuffer)
+}
 
-extern io def endForDatabaseRequest(res: Response, content: Database): Unit =
-  jsNode "${res}.end(Buffer.from(${content}.export()));"
-
-
+// Handling database messages and filesystem exceptions
 def handleDatabaseMessage(db: Database, path: String, res: Response) {f: () => Unit / DatabaseMessage}: Unit = {
   try {
     f()
@@ -70,14 +92,14 @@ def handleDatabaseMessage(db: Database, path: String, res: Response) {f: () => U
       end(res, """{"success":true}""")
       resume(())
     }
-    def warning(msg: String) = {
+    def error(msg: String) = {
       writeHead(res, 400, "application/json")
       end(res, "{\"error\":\"" ++ msg ++ "\"}")
       resume(())
     }
   }
 }
-def handleFilesystemException[E](proxy: on[E], res: Response, file: String) { prog: => Unit / Exception[E]}: Unit =
+def handleFilesystemException[E](proxy: on[E], res: Response, file: String) { prog: => Unit / Exception[E]}: Unit = {
   try { 
     prog() 
   } with Exception[E] { 
@@ -87,9 +109,10 @@ def handleFilesystemException[E](proxy: on[E], res: Response, file: String) { pr
       end(res, "{\"error\":\"" ++ msg ++ ": " ++ file ++ "\"}")
     }
   }
+}
 
 // Handling network requests
-def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request, res: Response): Unit = {
+def handleRequest(db: Database, dbPath: String, req: Request, res: Response): Unit = {
   val url = req.getUrl.substring(1).split("/")
   val method = req.getMethod()
   val body = req.getBody()
@@ -108,13 +131,25 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
       end(res, htmlContent)
     }
     case ("GET", "database") => {
-      with on[IOError].handleFilesystemException(res, "./data.sqlite");
-      val content = openDatabase("./data.sqlite")
+      val content = openWGManagerDatabase("./data.sqlite")
       writeHead(res, 200, "application/octet-stream")
-      endForDatabaseRequest(res, content)
+      end(res, content)
+    }
+    case ("GET", "favicon.ico") => {
+      val favicon = readBuffer("./out/favicon.ico")
+      favicon match {
+        case Some(buffer) => {
+          writeHead(res, 200, "image/x-icon")
+          end(res, buffer)
+        }
+        case None() => {
+          writeHead(res, 404, "text/plain")
+          end(res, "Not found")
+        }
+      }
     }
     case ("GET", file) => {
-      with on[IOError].handleFilesystemException(res, "./out/" ++ file);
+      with on[IOError].handleFilesystemException(res, file);
       val content = readFile("./out/" ++ file)
 
       if (file.endsWith(".html")) {
@@ -123,8 +158,6 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
         writeHead(res, 200, "application/javascript")
       } else if (file.endsWith(".css")) {
         writeHead(res, 200, "text/css")
-      } else if (file.endsWith(".ico")) {
-        writeHead(res, 200, "image/x-icon")
       } else {
         writeHead(res, 200, "text/plain")
       }
@@ -369,7 +402,7 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
       }
     }
 
-    case ("POST", "consumableCountUp") => {
+    case ("POST", "consumableCountIncrement") => {
       val consumableName = body.getJsonValue("consumableName")
       val flatmateName = body.getJsonValue("flatmateName")
 
@@ -379,7 +412,7 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
       } else {
         handleDatabaseMessage(db, dbPath, res) {
           val consumable = db.getConsumableByName(consumableName)
-          val updatedConsumable = consumable.countUp(flatmateName)
+          val updatedConsumable = consumable.countIncrement(flatmateName, 1)
           db.updateConsumable(updatedConsumable)
           ()
         }
@@ -427,10 +460,8 @@ def handleRequest(counter: Ref[Int], db: Database, dbPath: String, req: Request,
 def main() = {
   val databasePath = "./data.sqlite"
   val db = openWGManagerDatabase(databasePath)
-  val counter = ref(0)
 
-
-  val server = createServer(box { (req, res) => handleRequest(counter, db, databasePath, req, res) })
+  val server = createServer(box { (req, res) => handleRequest(db, databasePath, req, res) })
   listen(server, 3000, "0.0.0.0")
   println("Server running at http://localhost:3000")
 }

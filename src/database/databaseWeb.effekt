@@ -102,14 +102,6 @@ extern async def readDataWithParams(db: Database, query: String, param: String):
     }
     callback(rows[0]);
   })"""
-
-extern async def getTableLength(db: Database, table: String): Int =
-  jsWeb """$effekt.capture((callback) => {
-    const stmt = ${db}.prepare("SELECT COUNT(*) AS count FROM ${table}");
-    stmt.step();
-    const row = stmt.getAsObject();
-    callback(row.count);
-  })"""
 extern async def isEntryAvailable(db: Database, query: String, name: String): Bool =
   jsWeb """$effekt.capture((callback) => {
     const stmt = ${db}.prepare(${query});
@@ -132,6 +124,11 @@ interface TaskHandler {
 interface ConsumableHandler {
   def consumableInDatabase(name: String): Bool
   def consumableNotInDatabase(name: String): Bool
+}
+
+interface DatabaseMessage {
+  def clear(): Unit
+  def error(message: String): Unit
 }
 
 def isFlatmateInDatabase(db: Database, name: String): Bool / FlatmateHandler = {
@@ -159,6 +156,7 @@ def isConsumableInDatabase(db: Database, name: String): Bool / ConsumableHandler
   }
 }
 
+
 // Functions to retrieve whole tables
 def getFlatmates(db: Database): List[Flatmate] = {
   val query = "SELECT name, color FROM flatmates"
@@ -178,7 +176,7 @@ def getTasks(db: Database): List[Task] = {
 
   var tasks = empty[Task]()
   arr.foreach { row =>
-    val task = toTask(row.toList())
+    val task = row.toList().toTask()
     tasks = tasks.append([task])
     ()
   }
@@ -190,11 +188,12 @@ def getConsumables(db: Database): List[Consumable] = {
 
   var consumables = empty[Consumable]()
   arr.foreach { row =>
-    consumables = consumables.append([toConsumable(row.toList())])
+    consumables = consumables.append([row.toList().toConsumable()])
     ()
   }
   consumables
 }
+
 
 def getFlatmateNames(db: Database): List[String] = {
   val query = "SELECT name FROM flatmates"
@@ -211,6 +210,22 @@ def getFlatmateNames(db: Database): List[String] = {
   }
   names
 }
+def getFlatmateColors(db: Database): List[String] = {
+  val query = "SELECT color FROM flatmates"
+  val arr = db.readData(query)
+
+  var colors = empty[String]()
+  arr.foreach { row =>
+    val list = row.toList()
+    list match {
+      case Cons(color, _) => colors = colors.append([color])
+      case _ => ()
+    }
+    ()
+  }
+  colors
+}
+
 
 // Functions to retrieve single entries
 def getFlatmateByName(db: Database, name: String): Flatmate = {
